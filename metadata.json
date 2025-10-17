@@ -1,0 +1,8 @@
+{
+  "name": "New Design Humm-to-Song AI",
+  "description": "A voice recorder that takes a hummed melody and uses AI to generate accompanying lyrics and album artwork.",
+  "requestFramePermissions": [
+    "microphone"
+  ],
+  "prompt": ""
+}
