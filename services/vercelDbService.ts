@@ -21,6 +21,8 @@ export interface VercelSong {
 export const initDatabase = async (): Promise<boolean> => {
   try {
     console.log('🔄 Initializing Vercel Postgres database...');
+    console.log('📊 POSTGRES_URL exists:', !!process.env.POSTGRES_URL);
+    console.log('📊 POSTGRES_HOST:', process.env.POSTGRES_HOST);
     
     // Create songs table if it doesn't exist
     await sql`

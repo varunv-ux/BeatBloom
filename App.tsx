@@ -187,7 +187,10 @@ const App: React.FC = () => {
                 <NavButton active={view === 'create'} onClick={() => setView('create')}>
                   Create
                 </NavButton>
-                <NavButton active={view === 'my-songs'} onClick={() => setView('my-songs')}>
+                <NavButton active={view === 'my-songs'} onClick={() => {
+                  setView('my-songs');
+                  loadSongs(); // Reload songs when switching to My Songs view
+                }}>
                   My songs
                 </NavButton>
               </div>
