@@ -1,8 +1,7 @@
-import { sql } from '@vercel/postgres';
-import { SavedSong, GeneratedSong, MusicDescription } from '../types';
+import { SavedSong, MusicDescription } from '../types';
 
-// Note: Vercel Postgres uses environment variables automatically
-// POSTGRES_URL, POSTGRES_PRISMA_URL, POSTGRES_URL_NON_POOLING, etc.
+// API base URL - automatically uses the correct domain in production
+const API_BASE_URL = import.meta.env.DEV ? 'http://localhost:5173' : '';
 
 export interface VercelSong {
   id: number;
@@ -16,27 +15,24 @@ export interface VercelSong {
 }
 
 /**
- * Initialize database tables
+ * Initialize database tables via API
  */
 export const initDatabase = async (): Promise<boolean> => {
   try {
-    console.log('🔄 Initializing Vercel Postgres database...');
-    console.log('📊 POSTGRES_URL exists:', !!process.env.POSTGRES_URL);
-    console.log('📊 POSTGRES_HOST:', process.env.POSTGRES_HOST);
+    console.log('🔄 Initializing database via API...');
     
-    // Create songs table if it doesn't exist
-    await sql`
-      CREATE TABLE IF NOT EXISTS songs (
-        id SERIAL PRIMARY KEY,
-        title TEXT NOT NULL,
-        lyrics TEXT NOT NULL,
-        music_description JSONB NOT NULL,
-        album_art_url TEXT NOT NULL,
-        audio_data_url TEXT,
-        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-      )
-    `;
+    const response = await fetch(`${API_BASE_URL}/api/init-db`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+
+    const data = await response.json();
+    
+    if (!data.success) {
+      throw new Error(data.error || 'Failed to initialize database');
+    }
 
     console.log('✅ Database initialized successfully');
     return true;
@@ -47,7 +43,7 @@ export const initDatabase = async (): Promise<boolean> => {
 };
 
 /**
- * Add a new song to the database
+ * Add a new song to the database via API
  * Note: For audio, we'll store it as a data URL for now (works for smaller files)
  * For production, you'd want to use Vercel Blob storage
  */
@@ -59,7 +55,7 @@ export const addSong = async (songData: {
   generatedSongBlob?: Blob;
 }): Promise<number | null> => {
   try {
-    console.log('💾 Saving song to Vercel Postgres:', songData.title);
+    console.log('💾 Saving song via API:', songData.title);
     
     // Convert audio blob to data URL if provided
     let audioDataUrl: string | null = null;
@@ -67,21 +63,28 @@ export const addSong = async (songData: {
       audioDataUrl = await blobToDataUrl(songData.generatedSongBlob);
     }
 
-    const result = await sql`
-      INSERT INTO songs (title, lyrics, music_description, album_art_url, audio_data_url)
-      VALUES (
-        ${songData.title},
-        ${songData.lyrics},
-        ${JSON.stringify(songData.musicDescription)},
-        ${songData.albumArtUrl},
-        ${audioDataUrl}
-      )
-      RETURNING id
-    `;
+    const response = await fetch(`${API_BASE_URL}/api/songs`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        title: songData.title,
+        lyrics: songData.lyrics,
+        musicDescription: songData.musicDescription,
+        albumArtUrl: songData.albumArtUrl,
+        audioDataUrl,
+      }),
+    });
 
-    const id = result.rows[0]?.id;
-    console.log('✅ Song saved with ID:', id);
-    return id;
+    const data = await response.json();
+    
+    if (!data.success) {
+      throw new Error(data.error || 'Failed to save song');
+    }
+
+    console.log('✅ Song saved with ID:', data.id);
+    return data.id;
   } catch (error) {
     console.error('❌ Error adding song:', error);
     return null;
@@ -89,18 +92,23 @@ export const addSong = async (songData: {
 };
 
 /**
- * Get all songs from the database
+ * Get all songs from the database via API
  */
 export const getAllSongs = async (): Promise<SavedSong[]> => {
   try {
-    console.log('📂 Fetching songs from Vercel Postgres...');
+    console.log('📂 Fetching songs via API...');
     
-    const result = await sql`
-      SELECT * FROM songs
-      ORDER BY created_at DESC
-    `;
+    const response = await fetch(`${API_BASE_URL}/api/songs`, {
+      method: 'GET',
+    });
 
-    const songs: SavedSong[] = result.rows.map((row: any) => {
+    const data = await response.json();
+    
+    if (!data.success) {
+      throw new Error(data.error || 'Failed to fetch songs');
+    }
+
+    const songs: SavedSong[] = data.songs.map((row: any) => {
       // Convert data URL back to blob if present
       let audioBlob = new Blob();
       if (row.audio_data_url) {
@@ -127,16 +135,21 @@ export const getAllSongs = async (): Promise<SavedSong[]> => {
 };
 
 /**
- * Delete a song from the database
+ * Delete a song from the database via API
  */
 export const deleteSong = async (id: number): Promise<boolean> => {
   try {
-    console.log('🗑️ Deleting song:', id);
+    console.log('🗑️ Deleting song via API:', id);
     
-    await sql`
-      DELETE FROM songs
-      WHERE id = ${id}
-    `;
+    const response = await fetch(`${API_BASE_URL}/api/songs?id=${id}`, {
+      method: 'DELETE',
+    });
+
+    const data = await response.json();
+    
+    if (!data.success) {
+      throw new Error(data.error || 'Failed to delete song');
+    }
 
     console.log('✅ Song deleted');
     return true;
@@ -147,34 +160,13 @@ export const deleteSong = async (id: number): Promise<boolean> => {
 };
 
 /**
- * Get a single song by ID
+ * Get a single song by ID via API
+ * Note: Currently we just filter from getAllSongs, but you could create a dedicated endpoint
  */
 export const getSongById = async (id: number): Promise<SavedSong | null> => {
   try {
-    const result = await sql`
-      SELECT * FROM songs
-      WHERE id = ${id}
-    `;
-
-    if (result.rows.length === 0) {
-      return null;
-    }
-
-    const row = result.rows[0];
-    let audioBlob = new Blob();
-    if (row.audio_data_url) {
-      audioBlob = dataUrlToBlob(row.audio_data_url);
-    }
-
-    return {
-      id: row.id,
-      title: row.title,
-      lyrics: row.lyrics,
-      musicDescription: row.music_description,
-      albumArtUrl: row.album_art_url,
-      createdAt: new Date(row.created_at),
-      audioBlob,
-    };
+    const songs = await getAllSongs();
+    return songs.find(song => song.id === id) || null;
   } catch (error) {
     console.error('❌ Error fetching song:', error);
     return null;
@@ -213,5 +205,3 @@ const dataUrlToBlob = (dataUrl: string): Blob => {
   }
   return new Blob([u8arr], { type: mime });
 };
-
-export { sql };
