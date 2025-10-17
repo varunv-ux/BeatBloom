@@ -1,7 +1,7 @@
 import { SavedSong, MusicDescription } from '../types';
 
-// API base URL - automatically uses the correct domain in production
-const API_BASE_URL = import.meta.env.DEV ? 'http://localhost:5173' : '';
+// API base URL - empty string works for both dev (vercel dev) and production
+const API_BASE_URL = '';
 
 export interface VercelSong {
   id: number;

@@ -17,14 +17,6 @@ export default defineConfig(({ mode }) => {
           '@': path.resolve(__dirname, '.'),
         }
       },
-      // Proxy API requests during development
-      server: {
-        proxy: {
-          '/api': {
-            target: 'http://localhost:5173',
-            changeOrigin: true,
-          },
-        },
-      },
+      // Note: API routes are handled by Vercel Dev CLI, no proxy needed
     };
 });
