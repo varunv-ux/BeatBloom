@@ -124,9 +124,9 @@ const GeneratedSongDisplay: React.FC<GeneratedSongDisplayProps> = ({
 
   return (
     <div className="w-full h-full flex flex-col">
-      <div className="flex-1 px-6 py-4 flex gap-6 overflow-hidden">
+      <div className="flex-1 px-6 py-4 flex gap-6 overflow-hidden min-h-0">
         {/* Lyrics Column */}
-        <div className="w-1/3 bg-stone-100 rounded-[32px] p-6 flex flex-col overflow-hidden">
+        <div className="flex-1 bg-stone-100 rounded-[32px] p-6 flex flex-col overflow-hidden min-h-0">
           <h3 className="text-xl font-medium text-black mb-6">Lyrics</h3>
           <div className="flex-1 min-h-0">
             <textarea 
@@ -139,7 +139,7 @@ const GeneratedSongDisplay: React.FC<GeneratedSongDisplayProps> = ({
         </div>
 
         {/* Musical Style Column */}
-        <div className="w-1/3 bg-stone-100 rounded-[32px] p-6 flex flex-col overflow-hidden">
+        <div className="flex-1 bg-stone-100 rounded-[32px] p-6 flex flex-col overflow-hidden min-h-0">
           <h3 className="text-xl font-medium text-black mb-6">Musical style</h3>
           <div className="flex-1 space-y-5 overflow-y-auto">
             <div className="space-y-2">
@@ -247,7 +247,7 @@ const GeneratedSongDisplay: React.FC<GeneratedSongDisplayProps> = ({
         </div>
 
         {/* Song Info Column */}
-        <div className="w-1/3 bg-stone-100 rounded-[32px] p-6 flex flex-col overflow-hidden">
+        <div className="bg-stone-100 rounded-[32px] p-6 flex flex-col overflow-hidden min-h-0" style={{ minWidth: '400px', maxWidth: '400px' }}>
           <div className="flex-1 flex flex-col justify-between min-h-0">
             <div className="space-y-5 flex-shrink-0">
               {/* Song Header */}
