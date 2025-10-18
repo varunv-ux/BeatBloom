@@ -8,7 +8,6 @@ import RecorderControl from './components/RecorderControl';
 import GeneratedSongDisplay from './components/GeneratedSongDisplay';
 import Loader from './components/Loader';
 import MySongsView from './components/MySongsView';
-import { SparklesIcon } from './components/icons/SparklesIcon';
 
 const App: React.FC = () => {
   const [view, setView] = useState<AppView>('create');
@@ -165,7 +164,7 @@ const App: React.FC = () => {
 
   return (
     <div 
-      className="min-h-screen relative overflow-hidden font-sans"
+      className="h-screen w-screen overflow-hidden font-sans p-5"
       style={{
         backgroundImage: `url('/assets/Background01.png')`,
         backgroundSize: 'cover',
@@ -173,8 +172,7 @@ const App: React.FC = () => {
         backgroundRepeat: 'no-repeat'
       }}
     >
-      <div className="flex items-center justify-center min-h-screen p-[60px_200px]">
-        <div className="w-full max-w-[1280px] h-[960px] bg-white rounded-[32px] shadow-2xl flex flex-col overflow-hidden">
+      <div className="h-full w-full bg-white rounded-[32px] shadow-2xl flex flex-col overflow-hidden">
           {/* Header */}
           <header className="h-[66px] flex items-center justify-between px-6 py-3 border-b border-stone-100">
             <div className="flex items-center gap-2.5">
@@ -342,7 +340,6 @@ const App: React.FC = () => {
             )}
           </main>
         </div>
-      </div>
 
       {/* Settings Modal */}
       {showSettings && (
