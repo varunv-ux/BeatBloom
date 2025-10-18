@@ -125,128 +125,7 @@ const GeneratedSongDisplay: React.FC<GeneratedSongDisplayProps> = ({
   return (
     <div className="w-full h-full flex flex-col">
       <div className="flex-1 px-6 py-4 flex gap-6 overflow-hidden min-h-0">
-        {/* Lyrics Column */}
-        <div className="flex-1 bg-stone-100 rounded-[32px] p-6 flex flex-col overflow-hidden min-h-0">
-          <h3 className="text-xl font-medium text-black mb-6">Lyrics</h3>
-          <div className="flex-1 min-h-0">
-            <textarea 
-              value={editableLyrics}
-              onChange={(e) => setEditableLyrics(e.target.value)}
-              className="w-full h-full p-0 bg-transparent text-black text-base leading-6 resize-none focus:outline-none font-normal"
-              aria-label="Editable lyrics text area"
-            />
-          </div>
-        </div>
-
-        {/* Musical Style Column */}
-        <div className="flex-1 bg-stone-100 rounded-[32px] p-6 flex flex-col overflow-hidden min-h-0">
-          <h3 className="text-xl font-medium text-black mb-6">Musical style</h3>
-          <div className="flex-1 space-y-5 overflow-y-auto">
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-stone-600">Genre</label>
-              <div className="relative">
-                <select 
-                  name="genre" 
-                  value={editableDesc.genre} 
-                  onChange={handleDescChange}
-                  className="w-full h-10 bg-white border border-stone-200 rounded-xl px-3 text-sm text-stone-600 focus:outline-none focus:ring-2 focus:ring-stone-300 appearance-none"
-                >
-                  {GENRE_OPTIONS.map(option => <option key={option} value={option}>{option}</option>)}
-                </select>
-                <div className="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
-                  <svg width="21" height="21" viewBox="0 0 21 21" fill="none" className="text-stone-400">
-                    <path d="M6 8l4 4 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                  </svg>
-                </div>
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-stone-600">Mood</label>
-              <div className="relative">
-                <select 
-                  name="mood" 
-                  value={editableDesc.mood} 
-                  onChange={handleDescChange}
-                  className="w-full h-10 bg-white border border-stone-200 rounded-xl px-3 text-sm text-stone-600 focus:outline-none focus:ring-2 focus:ring-stone-300 appearance-none"
-                >
-                  {MOOD_OPTIONS.map(option => <option key={option} value={option}>{option}</option>)}
-                </select>
-                <div className="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
-                  <svg width="21" height="21" viewBox="0 0 21 21" fill="none" className="text-stone-400">
-                    <path d="M6 8l4 4 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                  </svg>
-                </div>
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-stone-600">Arrangement</label>
-              <div className="relative">
-                <select 
-                  name="arrangement" 
-                  value={editableDesc.arrangement} 
-                  onChange={handleDescChange}
-                  className="w-full h-10 bg-white border border-stone-200 rounded-xl px-3 text-sm text-stone-600 focus:outline-none focus:ring-2 focus:ring-stone-300 appearance-none"
-                >
-                  {ARRANGEMENT_OPTIONS.map(option => <option key={option} value={option}>{option}</option>)}
-                </select>
-                <div className="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
-                  <svg width="21" height="21" viewBox="0 0 21 21" fill="none" className="text-stone-400">
-                    <path d="M6 8l4 4 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                  </svg>
-                </div>
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-stone-600">Vocals</label>
-              <div className="relative">
-                <select 
-                  name="vocals" 
-                  value={editableDesc.vocals} 
-                  onChange={handleDescChange}
-                  className="w-full h-10 bg-white border border-stone-200 rounded-xl px-3 text-sm text-stone-600 focus:outline-none focus:ring-2 focus:ring-stone-300 appearance-none"
-                >
-                  {VOCAL_OPTIONS.map(option => <option key={option} value={option}>{option}</option>)}
-                </select>
-                <div className="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
-                  <svg width="21" height="21" viewBox="0 0 21 21" fill="none" className="text-stone-400">
-                    <path d="M6 8l4 4 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                  </svg>
-                </div>
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-stone-600">Duration</label>
-              <div className="relative">
-                <select 
-                  value={duration}
-                  onChange={(e) => setDuration(Number(e.target.value))}
-                  className="w-full h-10 bg-white border border-stone-200 rounded-xl px-3 text-sm text-stone-600 focus:outline-none focus:ring-2 focus:ring-stone-300 appearance-none"
-                  disabled={!selectedModel.supports.duration}
-                >
-                  {selectedModel.durationOptions.map(dur => (
-                    <option key={dur} value={dur}>{dur} seconds</option>
-                  ))}
-                </select>
-                <div className="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
-                  <svg width="21" height="21" viewBox="0 0 21 21" fill="none" className="text-stone-400">
-                    <path d="M6 8l4 4 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                  </svg>
-                </div>
-              </div>
-              {!selectedModel.supports.duration && (
-                <p className="text-xs text-stone-500">
-                  Duration is auto-determined by {selectedModel.name}
-                </p>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Song Info Column */}
+        {/* Album Cover Column - FIRST */}
         <div className="bg-stone-100 rounded-[32px] p-6 flex flex-col overflow-hidden min-h-0" style={{ minWidth: '400px', maxWidth: '400px' }}>
           <div className="flex-1 flex flex-col justify-between min-h-0">
             <div className="space-y-5 flex-shrink-0">
@@ -383,6 +262,127 @@ const GeneratedSongDisplay: React.FC<GeneratedSongDisplayProps> = ({
                   <p className="font-semibold">Music Generation Failed</p>
                   <p>{musicError}</p>
                 </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Lyrics Column - SECOND */}
+        <div className="flex-1 bg-stone-100 rounded-[32px] p-6 flex flex-col overflow-hidden min-h-0">
+          <h3 className="text-xl font-medium text-black mb-6">Lyrics</h3>
+          <div className="flex-1 min-h-0">
+            <textarea 
+              value={editableLyrics}
+              onChange={(e) => setEditableLyrics(e.target.value)}
+              className="w-full h-full p-0 bg-transparent text-black text-base leading-6 resize-none focus:outline-none font-normal"
+              aria-label="Editable lyrics text area"
+            />
+          </div>
+        </div>
+
+        {/* Musical Style Column - THIRD */}
+        <div className="bg-stone-100 rounded-[32px] p-6 flex flex-col overflow-hidden min-h-0" style={{ minWidth: '400px', maxWidth: '400px' }}>
+          <h3 className="text-xl font-medium text-black mb-6">Musical style</h3>
+          <div className="flex-1 space-y-5 overflow-y-auto">
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-stone-600">Genre</label>
+              <div className="relative">
+                <select 
+                  name="genre" 
+                  value={editableDesc.genre} 
+                  onChange={handleDescChange}
+                  className="w-full h-10 bg-white border border-stone-200 rounded-xl px-3 text-sm text-stone-600 focus:outline-none focus:ring-2 focus:ring-stone-300 appearance-none"
+                >
+                  {GENRE_OPTIONS.map(option => <option key={option} value={option}>{option}</option>)}
+                </select>
+                <div className="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
+                  <svg width="21" height="21" viewBox="0 0 21 21" fill="none" className="text-stone-400">
+                    <path d="M6 8l4 4 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-stone-600">Mood</label>
+              <div className="relative">
+                <select 
+                  name="mood" 
+                  value={editableDesc.mood} 
+                  onChange={handleDescChange}
+                  className="w-full h-10 bg-white border border-stone-200 rounded-xl px-3 text-sm text-stone-600 focus:outline-none focus:ring-2 focus:ring-stone-300 appearance-none"
+                >
+                  {MOOD_OPTIONS.map(option => <option key={option} value={option}>{option}</option>)}
+                </select>
+                <div className="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
+                  <svg width="21" height="21" viewBox="0 0 21 21" fill="none" className="text-stone-400">
+                    <path d="M6 8l4 4 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-stone-600">Arrangement</label>
+              <div className="relative">
+                <select 
+                  name="arrangement" 
+                  value={editableDesc.arrangement} 
+                  onChange={handleDescChange}
+                  className="w-full h-10 bg-white border border-stone-200 rounded-xl px-3 text-sm text-stone-600 focus:outline-none focus:ring-2 focus:ring-stone-300 appearance-none"
+                >
+                  {ARRANGEMENT_OPTIONS.map(option => <option key={option} value={option}>{option}</option>)}
+                </select>
+                <div className="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
+                  <svg width="21" height="21" viewBox="0 0 21 21" fill="none" className="text-stone-400">
+                    <path d="M6 8l4 4 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-stone-600">Vocals</label>
+              <div className="relative">
+                <select 
+                  name="vocals" 
+                  value={editableDesc.vocals} 
+                  onChange={handleDescChange}
+                  className="w-full h-10 bg-white border border-stone-200 rounded-xl px-3 text-sm text-stone-600 focus:outline-none focus:ring-2 focus:ring-stone-300 appearance-none"
+                >
+                  {VOCAL_OPTIONS.map(option => <option key={option} value={option}>{option}</option>)}
+                </select>
+                <div className="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
+                  <svg width="21" height="21" viewBox="0 0 21 21" fill="none" className="text-stone-400">
+                    <path d="M6 8l4 4 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-stone-600">Duration</label>
+              <div className="relative">
+                <select 
+                  value={duration}
+                  onChange={(e) => setDuration(Number(e.target.value))}
+                  className="w-full h-10 bg-white border border-stone-200 rounded-xl px-3 text-sm text-stone-600 focus:outline-none focus:ring-2 focus:ring-stone-300 appearance-none"
+                  disabled={!selectedModel.supports.duration}
+                >
+                  {selectedModel.durationOptions.map(dur => (
+                    <option key={dur} value={dur}>{dur} seconds</option>
+                  ))}
+                </select>
+                <div className="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
+                  <svg width="21" height="21" viewBox="0 0 21 21" fill="none" className="text-stone-400">
+                    <path d="M6 8l4 4 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                </div>
+              </div>
+              {!selectedModel.supports.duration && (
+                <p className="text-xs text-stone-500">
+                  Duration is auto-determined by {selectedModel.name}
+                </p>
               )}
             </div>
           </div>
