@@ -21,9 +21,9 @@ const App: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [musicError, setMusicError] = useState<string | null>(null);
   const [savedSongs, setSavedSongs] = useState<SavedSong[]>([]);
-  const [showUserMenu, setShowUserMenu] = useState<boolean>(false);
   const [selectedMusicModel, setSelectedMusicModel] = useState<MusicModelId>(DEFAULT_MODEL);
   const [showSettings, setShowSettings] = useState<boolean>(false);
+  const [showModelSelection, setShowModelSelection] = useState<boolean>(false);
 
   useEffect(() => {
     console.log('🚀 App starting - initializing database...');
@@ -37,14 +37,14 @@ const App: React.FC = () => {
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (showUserMenu && !(event.target as Element).closest('.user-menu-container')) {
-        setShowUserMenu(false);
+      if (showSettings && !(event.target as Element).closest('.user-menu-container')) {
+        setShowSettings(false);
       }
     };
 
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [showUserMenu]);
+  }, [showSettings]);
 
   const loadSongs = async () => {
     console.log('📂 Loading songs from database...');
@@ -195,81 +195,26 @@ const App: React.FC = () => {
             </nav>
 
             <div className="flex items-center gap-4">
-              <button className="bg-stone-100 h-10 px-3 py-1 rounded-2xl flex items-center gap-1 text-stone-600 text-xs font-medium">
-                <img src="/assets/Crown.png" alt="Crown" className="w-4 h-4" />
-                Upgrade
-              </button>
-              
-              {/* Settings Button */}
               <button 
-                onClick={() => setShowSettings(true)}
-                className="w-10 h-10 bg-stone-100 rounded-full hover:bg-stone-200 transition-colors flex items-center justify-center"
-                title="Settings"
+                onClick={() => setShowModelSelection(!showModelSelection)}
+                className="w-10 h-10 rounded-full hover:bg-stone-100 transition-colors flex items-center justify-center"
               >
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" className="text-stone-600">
-                  <path d="M12 15a3 3 0 100-6 3 3 0 000 6z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                  <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09a1.65 1.65 0 00-1.51 1z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" className="text-stone-600">
+                  <path d="M10 1.66666V5.83333M10 14.1667V18.3333M5.83333 10H1.66667M18.3333 10H14.1667M15.8333 15.8333L13.3333 13.3333M15.8333 4.16666L13.3333 6.66666M4.16667 15.8333L6.66667 13.3333M4.16667 4.16666L6.66667 6.66666" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
                 </svg>
               </button>
               
               <div className="relative user-menu-container">
                 <button 
-                  onClick={() => setShowUserMenu(!showUserMenu)}
-                  className="w-10 h-10 bg-stone-300 rounded-full hover:bg-stone-400 transition-colors"
+                  onClick={() => setShowSettings(!showSettings)}
+                  className="w-10 h-10 bg-stone-300 rounded-full hover:bg-stone-400 transition-colors overflow-hidden"
                 >
                   <img 
-                    src="https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=40&h=40&fit=crop&crop=face" 
+                    src="/assets/Profile.png" 
                     alt="User avatar" 
-                    className="w-full h-full rounded-full object-cover"
+                    className="w-full h-full object-cover"
                   />
                 </button>
-                
-                {showUserMenu && (
-                  <div className="absolute right-0 top-full mt-2 w-64 bg-white rounded-2xl shadow-lg border border-stone-200 py-4 z-50">
-                    {/* User Info */}
-                    <div className="px-4 pb-4 border-b border-stone-100">
-                      <h3 className="font-semibold text-stone-950">Varun Varshney</h3>
-                      <p className="text-sm text-stone-500">varunv.ux@gmail.com</p>
-                    </div>
-                    
-                    {/* Upgrade Section */}
-                    <div className="px-4 py-4 border-b border-stone-100">
-                      <button className="w-full bg-stone-950 text-white font-medium py-2.5 px-4 rounded-xl hover:bg-stone-800 transition-colors">
-                        Upgrade to Pro
-                      </button>
-                      <p className="text-xs text-stone-500 mt-2">Free Plan • 2 songs left</p>
-                    </div>
-                    
-                    {/* Menu Items */}
-                    <div className="py-2">
-                      <button className="w-full px-4 py-2.5 text-left text-stone-700 hover:bg-stone-50 transition-colors flex items-center gap-3">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                          <path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zM12 17c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zM15.1 8H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z" fill="currentColor"/>
-                        </svg>
-                        Share
-                      </button>
-                      <button className="w-full px-4 py-2.5 text-left text-stone-700 hover:bg-stone-50 transition-colors flex items-center gap-3">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                          <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" fill="currentColor"/>
-                        </svg>
-                        About
-                      </button>
-                      <button className="w-full px-4 py-2.5 text-left text-stone-700 hover:bg-stone-50 transition-colors flex items-center gap-3">
-                        <img src="/assets/Signout.svg" alt="Sign out" className="w-4 h-4" />
-                        Sign out
-                      </button>
-                    </div>
-                    
-                    {/* Footer Links */}
-                    <div className="px-4 pt-4 border-t border-stone-100">
-                      <div className="flex gap-4 text-xs text-stone-500">
-                        <button className="hover:text-stone-700 transition-colors">Privacy</button>
-                        <button className="hover:text-stone-700 transition-colors">Terms</button>
-                        <button className="hover:text-stone-700 transition-colors">Feedback</button>
-                      </div>
-                    </div>
-                  </div>
-                )}
               </div>
             </div>
           </header>
@@ -341,14 +286,93 @@ const App: React.FC = () => {
           </main>
         </div>
 
-      {/* Settings Modal */}
+      {/* Settings Menu Dropdown */}
       {showSettings && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setShowSettings(false)}>
+        <div className="fixed inset-0 z-40" onClick={() => setShowSettings(false)}>
+          <div 
+            className="absolute right-4 top-20 bg-white border border-stone-100 rounded-[24px] w-[320px] shadow-2xl overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* User Info Section */}
+            <div className="p-3 space-y-2.5">
+              {/* User Details */}
+              <div className="bg-stone-50 rounded p-4 space-y-3">
+                <div className="flex items-center gap-3">
+                  <img 
+                    src="/assets/Profile.png" 
+                    alt="Profile" 
+                    className="w-10 h-10 rounded-full object-cover flex-shrink-0"
+                  />
+                  <div className="flex-1">
+                    <p className="font-medium text-sm text-stone-950 leading-5">Varun Varshney</p>
+                    <p className="font-normal text-sm text-stone-500 leading-5">varunv.ux@gmail.com</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Upgrade Section */}
+              <div className="bg-stone-50 rounded p-4 pb-3 space-y-3">
+                <button className="w-full bg-stone-950 text-stone-100 font-medium text-sm leading-5 px-3 py-2.5 rounded-2xl hover:bg-stone-800 transition-colors">
+                  Upgrade to Pro
+                </button>
+                <div className="flex items-center justify-center gap-1 text-xs text-stone-500 leading-4">
+                  <span>Free Plan</span>
+                  <span>・</span>
+                  <span>2 songs left</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Dividers */}
+            <div className="h-px bg-stone-100"></div>
+            <div className="h-px bg-stone-100"></div>
+
+            {/* Menu Items */}
+            <div className="px-2 py-3 space-y-px">
+              <button className="w-full flex items-center gap-3 pl-2 pr-0 py-2 rounded-lg hover:bg-stone-50 transition-colors">
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" className="text-stone-500">
+                  <path d="M13.3333 11.6666C14.6667 12.5 15.8333 13.3333 16.6667 14.1666C17.5 15 18.3333 16.6666 18.3333 16.6666M6.66667 11.6666C5.33333 12.5 4.16667 13.3333 3.33333 14.1666C2.5 15 1.66667 16.6666 1.66667 16.6666M10 11.6666V3.33331M10 3.33331L13.3333 6.66665M10 3.33331L6.66667 6.66665" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+                <span className="font-medium text-sm text-stone-500 leading-5">Share</span>
+              </button>
+              
+              <button className="w-full flex items-center gap-3 pl-2 pr-0 py-2 rounded-lg hover:bg-stone-50 transition-colors">
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" className="text-stone-500">
+                  <circle cx="10" cy="10" r="8.33333" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                  <path d="M10 13.3333V10M10 6.66667H10.0083" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+                <span className="font-medium text-sm text-stone-500 leading-5">About</span>
+              </button>
+              
+              <button className="w-full flex items-center gap-3 pl-2 pr-0 py-2 rounded-lg hover:bg-stone-50 transition-colors">
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" className="text-stone-500">
+                  <path d="M7.5 17.5H4.16667C3.72464 17.5 3.30072 17.3244 2.98816 17.0118C2.67559 16.6993 2.5 16.2754 2.5 15.8333V4.16667C2.5 3.72464 2.67559 3.30072 2.98816 2.98816C3.30072 2.67559 3.72464 2.5 4.16667 2.5H7.5M13.3333 14.1667L17.5 10M17.5 10L13.3333 5.83333M17.5 10H7.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+                <span className="font-medium text-sm text-stone-500 leading-5">Sign out</span>
+              </button>
+            </div>
+
+            {/* Bottom Divider */}
+            <div className="h-px bg-stone-100"></div>
+
+            {/* Footer Links */}
+            <div className="px-2 py-4 flex items-center justify-center gap-4 text-xs text-stone-500 leading-4">
+              <button className="hover:text-stone-700 transition-colors">Privacy</button>
+              <button className="hover:text-stone-700 transition-colors">Terms</button>
+              <button className="hover:text-stone-700 transition-colors">Feedback</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Model Selection Modal */}
+      {showModelSelection && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60]" onClick={() => setShowModelSelection(false)}>
           <div className="bg-white rounded-3xl p-8 max-w-md w-full mx-4 shadow-2xl" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-6">
-              <h2 className="text-2xl font-bold text-stone-950">Settings</h2>
+              <h2 className="text-2xl font-bold text-stone-950">Music Model</h2>
               <button 
-                onClick={() => setShowSettings(false)}
+                onClick={() => setShowModelSelection(false)}
                 className="w-8 h-8 rounded-full hover:bg-stone-100 transition-colors flex items-center justify-center"
               >
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" className="text-stone-600">
@@ -361,7 +385,7 @@ const App: React.FC = () => {
               {/* Music Model Selection */}
               <div>
                 <label className="block text-sm font-medium text-stone-700 mb-3">
-                  Music Generation Model
+                  Select Music Generation Model
                 </label>
                 <div className="space-y-3">
                   {Object.values(MUSIC_MODELS).map((model) => (
@@ -397,7 +421,7 @@ const App: React.FC = () => {
                             )}
                           </div>
                         </div>
-                        <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
+                        <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${
                           selectedMusicModel === model.id
                             ? 'border-stone-950 bg-stone-950'
                             : 'border-stone-300'
@@ -416,7 +440,7 @@ const App: React.FC = () => {
 
               <div className="pt-4 border-t border-stone-200">
                 <button
-                  onClick={() => setShowSettings(false)}
+                  onClick={() => setShowModelSelection(false)}
                   className="w-full h-12 bg-stone-950 text-white font-medium rounded-2xl hover:bg-stone-800 transition-colors"
                 >
                   Done

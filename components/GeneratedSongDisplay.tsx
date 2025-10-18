@@ -268,7 +268,7 @@ const GeneratedSongDisplay: React.FC<GeneratedSongDisplayProps> = ({
         </div>
 
         {/* Lyrics Column - SECOND */}
-        <div className="flex-1 bg-stone-100 rounded-[32px] p-6 flex flex-col overflow-hidden min-h-0">
+        <div className="flex-1 bg-stone-100 rounded-[32px] p-6 flex flex-col overflow-hidden min-h-0" style={{ minWidth: '400px' }}>
           <h3 className="text-xl font-medium text-black mb-6">Lyrics</h3>
           <div className="flex-1 min-h-0">
             <textarea 
