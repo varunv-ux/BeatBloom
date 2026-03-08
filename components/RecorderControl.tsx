@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useVoiceVisualizer, VoiceVisualizer } from 'react-voice-visualizer';
 import type { RecordingStatus } from '../types';
 
@@ -66,27 +66,27 @@ const RecorderControl: React.FC<RecorderControlProps> = ({
     formattedRecordingTime,
     error,
     startAudioPlayback,
-    stopAudioPlayback,
     isAvailableRecordedAudio,
     isPausedRecordedAudio,
     currentAudioTime,
-    duration,
   } = recorderControls;
 
   // Handle recorded blob
   useEffect(() => {
     if (recordedBlob) {
       setAudioBlob(recordedBlob);
+      // Revoke previous URL before creating new one
+      if (audioURL) {
+        URL.revokeObjectURL(audioURL);
+      }
       const url = URL.createObjectURL(recordedBlob);
       setAudioURL(url);
     }
-  }, [recordedBlob, setAudioBlob, setAudioURL]);
+  }, [recordedBlob]);
 
   // Handle errors
   useEffect(() => {
     if (error) {
-      console.error('Voice visualizer error:', error);
-      alert('Could not access microphone. Please ensure permissions are granted.');
       setRecordingStatus('idle');
     }
   }, [error, setRecordingStatus]);
@@ -130,21 +130,21 @@ const RecorderControl: React.FC<RecorderControlProps> = ({
   if (recordingStatus === 'stopped' && recordedBlob) {
     return (
       <div className="flex flex-col items-center gap-10">
-        <h3 className="text-5xl font-medium text-black text-center leading-none">
+        <h3 className="text-5xl font-medium text-foreground text-center leading-none">
           Recording complete
         </h3>
         <div className="h-[200px] flex items-center gap-8">
           {/* Play/Pause button */}
           <button 
             onClick={handlePlayPauseClick}
-            className="w-20 h-20 border-2 border-stone-300 rounded-full flex items-center justify-center hover:border-stone-400 hover:bg-stone-50 transition-all cursor-pointer group"
+            className="w-20 h-20 border-2 border-border rounded-full flex items-center justify-center hover:border-muted-foreground hover:bg-muted transition-all cursor-pointer group"
           >
             {isPausedRecordedAudio || currentAudioTime === 0 ? (
-              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" className="text-stone-600 ml-1 group-hover:text-stone-700 transition-colors">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" className="text-muted-foreground ml-1 group-hover:text-foreground transition-colors">
                 <path d="M8 5v14l11-7z" fill="currentColor" />
               </svg>
             ) : (
-              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" className="text-stone-600 group-hover:text-stone-700 transition-colors">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" className="text-muted-foreground group-hover:text-foreground transition-colors">
                 <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z" fill="currentColor" />
               </svg>
             )}
@@ -172,7 +172,7 @@ const RecorderControl: React.FC<RecorderControlProps> = ({
           </div>
           
           {/* Duration display */}
-          <div className="text-stone-500 font-medium text-2xl min-w-[60px] text-center">
+          <div className="text-muted-foreground font-medium text-2xl min-w-[60px] text-center">
             {currentAudioTime > 0 ? formatTime(Math.floor(currentAudioTime)) : formatTime(timer)}
           </div>
         </div>
@@ -233,8 +233,6 @@ const RecorderControl: React.FC<RecorderControlProps> = ({
               onlyRecording={true}
               animateCurrentPick={true}
               fullscreen={false}
-              audioDistanceToCenter={2}
-              smoothingTimeConstant={0.8}
             />
           </div>
         )}
@@ -246,7 +244,7 @@ const RecorderControl: React.FC<RecorderControlProps> = ({
           onClick={handleButtonClick}
           className={`w-[200px] h-14 font-medium text-xl rounded-3xl transition-all transform hover:scale-[1.02] active:scale-[0.98] shadow-lg ${
             isRecordingInProgress || isPausedRecording
-              ? 'bg-stone-950 text-white hover:bg-stone-800 shadow-stone-400/30'
+              ? 'bg-primary text-primary-foreground hover:opacity-90 shadow-primary/30'
               : 'bg-red-600 text-white hover:bg-red-700 shadow-red-300/30'
           }`}
           disabled={!!error}
@@ -267,7 +265,7 @@ const RecorderControl: React.FC<RecorderControlProps> = ({
       </div>
       
       {/* Timer Display */}
-      <div className="text-stone-500 text-2xl font-normal tabular-nums">
+      <div className="text-muted-foreground text-2xl font-normal tabular-nums">
         {isRecordingInProgress ? formattedRecordingTime || formatTime(timer) : formatTime(timer)}
       </div>
     </div>

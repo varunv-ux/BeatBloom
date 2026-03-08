@@ -1,6 +1,5 @@
 import { SavedSong, MusicDescription } from '../types';
 
-// API base URL - empty string works for both dev (vercel dev) and production
 const API_BASE_URL = '';
 
 export interface VercelSong {
@@ -9,181 +8,49 @@ export interface VercelSong {
   lyrics: string;
   music_description: MusicDescription;
   album_art_url: string;
-  audio_data_url?: string; // Store small audio files as data URLs
+  audio_url?: string;
   created_at: string;
   updated_at: string;
 }
 
 /**
- * Initialize database tables via API
+ * Upload a file to Vercel Blob storage via the API route.
+ * Returns the public URL, or null if blob storage isn't configured.
  */
-export const initDatabase = async (): Promise<boolean> => {
+const uploadToBlob = async (
+  base64Data: string,
+  filename: string,
+  contentType: string
+): Promise<string | null> => {
   try {
-    console.log('🔄 Initializing database via API...');
-    
-    const response = await fetch(`${API_BASE_URL}/api/init-db`, {
+    const response = await fetch(`${API_BASE_URL}/api/upload`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ base64Data, filename, contentType }),
     });
 
     const data = await response.json();
-    
-    if (!data.success) {
-      throw new Error(data.error || 'Failed to initialize database');
+    if (data.success) {
+      return data.url;
     }
-
-    console.log('✅ Database initialized successfully');
-    return true;
-  } catch (error) {
-    console.error('❌ Error initializing database:', error);
-    return false;
-  }
-};
-
-/**
- * Add a new song to the database via API
- * Note: For audio, we'll store it as a data URL for now (works for smaller files)
- * For production, you'd want to use Vercel Blob storage
- */
-export const addSong = async (songData: {
-  title: string;
-  lyrics: string;
-  musicDescription: MusicDescription;
-  albumArtUrl: string;
-  generatedSongBlob?: Blob;
-}): Promise<number | null> => {
-  try {
-    console.log('💾 Saving song via API:', songData.title);
-    
-    // Convert audio blob to data URL if provided
-    let audioDataUrl: string | null = null;
-    if (songData.generatedSongBlob) {
-      audioDataUrl = await blobToDataUrl(songData.generatedSongBlob);
-    }
-
-    const response = await fetch(`${API_BASE_URL}/api/songs`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        title: songData.title,
-        lyrics: songData.lyrics,
-        musicDescription: songData.musicDescription,
-        albumArtUrl: songData.albumArtUrl,
-        audioDataUrl,
-      }),
-    });
-
-    const data = await response.json();
-    
-    if (!data.success) {
-      throw new Error(data.error || 'Failed to save song');
-    }
-
-    console.log('✅ Song saved with ID:', data.id);
-    return data.id;
-  } catch (error) {
-    console.error('❌ Error adding song:', error);
+    // Blob storage not configured - fall back gracefully
+    return null;
+  } catch {
     return null;
   }
 };
 
 /**
- * Get all songs from the database via API
+ * Convert a blob to base64 (data portion only, no prefix)
  */
-export const getAllSongs = async (): Promise<SavedSong[]> => {
-  try {
-    console.log('📂 Fetching songs via API...');
-    
-    const response = await fetch(`${API_BASE_URL}/api/songs`, {
-      method: 'GET',
-    });
-
-    const data = await response.json();
-    
-    if (!data.success) {
-      throw new Error(data.error || 'Failed to fetch songs');
-    }
-
-    const songs: SavedSong[] = data.songs.map((row: any) => {
-      // Convert data URL back to blob if present
-      let audioBlob = new Blob();
-      if (row.audio_data_url) {
-        audioBlob = dataUrlToBlob(row.audio_data_url);
-      }
-
-      return {
-        id: row.id,
-        title: row.title,
-        lyrics: row.lyrics,
-        musicDescription: row.music_description,
-        albumArtUrl: row.album_art_url,
-        createdAt: new Date(row.created_at),
-        audioBlob,
-      };
-    });
-
-    console.log('✅ Fetched', songs.length, 'songs');
-    return songs;
-  } catch (error) {
-    console.error('❌ Error fetching songs:', error);
-    return [];
-  }
-};
-
-/**
- * Delete a song from the database via API
- */
-export const deleteSong = async (id: number): Promise<boolean> => {
-  try {
-    console.log('🗑️ Deleting song via API:', id);
-    
-    const response = await fetch(`${API_BASE_URL}/api/songs?id=${id}`, {
-      method: 'DELETE',
-    });
-
-    const data = await response.json();
-    
-    if (!data.success) {
-      throw new Error(data.error || 'Failed to delete song');
-    }
-
-    console.log('✅ Song deleted');
-    return true;
-  } catch (error) {
-    console.error('❌ Error deleting song:', error);
-    return false;
-  }
-};
-
-/**
- * Get a single song by ID via API
- * Note: Currently we just filter from getAllSongs, but you could create a dedicated endpoint
- */
-export const getSongById = async (id: number): Promise<SavedSong | null> => {
-  try {
-    const songs = await getAllSongs();
-    return songs.find(song => song.id === id) || null;
-  } catch (error) {
-    console.error('❌ Error fetching song:', error);
-    return null;
-  }
-};
-
-/**
- * Helper: Convert Blob to Data URL
- */
-const blobToDataUrl = (blob: Blob): Promise<string> => {
+const blobToBase64Raw = (blob: Blob): Promise<string> => {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onloadend = () => {
       if (typeof reader.result === 'string') {
-        resolve(reader.result);
+        resolve(reader.result.split(',')[1]);
       } else {
-        reject(new Error('Failed to convert blob to data URL'));
+        reject(new Error('Failed to convert blob to base64'));
       }
     };
     reader.onerror = reject;
@@ -192,16 +59,137 @@ const blobToDataUrl = (blob: Blob): Promise<string> => {
 };
 
 /**
- * Helper: Convert Data URL to Blob
+ * Initialize database tables via API
  */
-const dataUrlToBlob = (dataUrl: string): Blob => {
-  const parts = dataUrl.split(',');
-  const mime = parts[0].match(/:(.*?);/)?.[1] || 'audio/mpeg';
-  const bstr = atob(parts[1]);
-  const n = bstr.length;
-  const u8arr = new Uint8Array(n);
-  for (let i = 0; i < n; i++) {
-    u8arr[i] = bstr.charCodeAt(i);
+export const initDatabase = async (): Promise<boolean> => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/init-db`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+    });
+
+    const data = await response.json();
+    return data.success === true;
+  } catch {
+    return false;
   }
-  return new Blob([u8arr], { type: mime });
+};
+
+/**
+ * Add a new song to the database via API.
+ * Uploads audio to blob storage if available, otherwise stores the audio URL from Replicate.
+ */
+export const addSong = async (songData: {
+  title: string;
+  lyrics: string;
+  musicDescription: MusicDescription;
+  albumArtUrl: string;
+  audioUrl?: string;
+  generatedSongBlob?: Blob;
+  parentId?: number | null;
+}): Promise<number | null> => {
+  try {
+    let audioUrl = songData.audioUrl || null;
+
+    // Try to upload audio to blob storage
+    if (songData.generatedSongBlob && songData.generatedSongBlob.size > 0) {
+      const base64 = await blobToBase64Raw(songData.generatedSongBlob);
+      const contentType = songData.generatedSongBlob.type || 'audio/mpeg';
+      const blobUrl = await uploadToBlob(
+        base64,
+        `songs/${Date.now()}-audio.mp3`,
+        contentType
+      );
+      if (blobUrl) {
+        audioUrl = blobUrl;
+      }
+    }
+
+    // Try to upload album art to blob storage (if it's a data URL)
+    let albumArtUrl = songData.albumArtUrl;
+    if (albumArtUrl.startsWith('data:image/')) {
+      const parts = albumArtUrl.split(',');
+      const base64 = parts[1];
+      const mime = parts[0].match(/:(.*?);/)?.[1] || 'image/jpeg';
+      const blobUrl = await uploadToBlob(
+        base64,
+        `songs/${Date.now()}-cover.jpg`,
+        mime
+      );
+      if (blobUrl) {
+        albumArtUrl = blobUrl;
+      }
+    }
+
+    const response = await fetch(`${API_BASE_URL}/api/songs`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        title: songData.title,
+        lyrics: songData.lyrics,
+        musicDescription: songData.musicDescription,
+        albumArtUrl,
+        audioUrl,
+        parentId: songData.parentId || null,
+      }),
+    });
+
+    const data = await response.json();
+    if (!data.success) {
+      throw new Error(data.error || 'Failed to save song');
+    }
+
+    return data.id;
+  } catch {
+    return null;
+  }
+};
+
+/**
+ * Get all songs from the database via API (with pagination)
+ */
+export const getAllSongs = async (page: number = 1, limit: number = 20): Promise<{ songs: SavedSong[]; total: number }> => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/songs?page=${page}&limit=${limit}`, {
+      method: 'GET',
+    });
+
+    const data = await response.json();
+
+    if (!data.success) {
+      throw new Error(data.error || 'Failed to fetch songs');
+    }
+
+    const songs: SavedSong[] = data.songs.map((row: any) => ({
+      id: row.id,
+      title: row.title,
+      lyrics: row.lyrics,
+      musicDescription: row.music_description,
+      albumArtUrl: row.album_art_url,
+      audioUrl: row.audio_url || undefined,
+      createdAt: new Date(row.created_at),
+      parentId: row.parent_id || null,
+      versionNumber: row.version_number || 1,
+    }));
+
+    return { songs, total: data.pagination?.total || songs.length };
+  } catch {
+    return { songs: [], total: 0 };
+  }
+};
+
+/**
+ * Delete a song from the database via API
+ */
+export const deleteSong = async (id: number): Promise<boolean> => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/songs?id=${id}`, {
+      method: 'DELETE',
+    });
+
+    const data = await response.json();
+    return data.success === true;
+  } catch {
+    return false;
+  }
 };

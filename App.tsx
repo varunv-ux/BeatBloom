@@ -1,16 +1,30 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { GeneratedSong, RecordingStatus, AppView, SavedSong, MusicDescription } from './types';
 import { generateSongFromHum } from './services/geminiService';
 import { generateMusic } from './services/replicateService';
 import { MusicModelId, MUSIC_MODELS, DEFAULT_MODEL } from './services/musicModels';
 import * as dbService from './services/vercelDbService';
+import * as cacheService from './services/cacheService';
 import RecorderControl from './components/RecorderControl';
 import GeneratedSongDisplay from './components/GeneratedSongDisplay';
 import Loader from './components/Loader';
 import MySongsView from './components/MySongsView';
+import MobileSongDrawer from './components/MobileSongDrawer';
+import MobileHeader from './components/MobileHeader';
+import MobileBottomNav from './components/MobileBottomNav';
+import MobileRecorderControl from './components/MobileRecorderControl';
+import MobileMySongsView from './components/MobileMySongsView';
+import MiniPlayer from './components/MiniPlayer';
+import Toast, { ToastMessage } from './components/Toast';
 
 const App: React.FC = () => {
-  const [view, setView] = useState<AppView>('create');
+  const [view, setView] = useState<AppView>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = sessionStorage.getItem('beatbloom-view');
+      if (saved === 'my-songs') return 'my-songs';
+    }
+    return 'create';
+  });
   const [recordingStatus, setRecordingStatus] = useState<RecordingStatus>('idle');
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
   const [audioURL, setAudioURL] = useState<string | null>(null);
@@ -24,20 +38,94 @@ const App: React.FC = () => {
   const [selectedMusicModel, setSelectedMusicModel] = useState<MusicModelId>(DEFAULT_MODEL);
   const [showSettings, setShowSettings] = useState<boolean>(false);
   const [showModelSelection, setShowModelSelection] = useState<boolean>(false);
+  const [isMobile, setIsMobile] = useState<boolean>(false);
+  const [songsLoading, setSongsLoading] = useState<boolean>(true);
+  const [songsError, setSongsError] = useState<string | null>(null);
+  const [previousObjectUrl, setPreviousObjectUrl] = useState<string | null>(null);
+  const [miniPlayerSong, setMiniPlayerSong] = useState<{ url: string; title: string; albumArtUrl: string; subtitle: string; autoPlay?: boolean; songId?: number } | null>(null);
+  const [darkMode, setDarkMode] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('beatbloom-dark-mode') === 'true';
+    }
+    return false;
+  });
+  const [toasts, setToasts] = useState<ToastMessage[]>([]);
+  const abortControllerRef = useRef<AbortController | null>(null);
+  const [editingSongId, setEditingSongId] = useState<number | null>(null);
 
   useEffect(() => {
-    console.log('🚀 App starting - initializing database...');
-    dbService.initDatabase().then((success) => {
-      console.log('📊 Database init result:', success);
-      loadSongs();
-    }).catch((error) => {
-      console.error('❌ Database init failed:', error);
+    // Load cached songs immediately, then refresh from API
+    cacheService.getCachedSongs().then((cached) => {
+      if (cached.length > 0) {
+        setSavedSongs(cached);
+        setSongsLoading(false);
+      }
     });
+    dbService.initDatabase().then(() => {
+      loadSongs();
+    });
+
+    // Handle shared song URL (?song=123)
+    const params = new URLSearchParams(window.location.search);
+    const sharedSongId = params.get('song');
+    if (sharedSongId) {
+      const songId = parseInt(sharedSongId);
+      if (!isNaN(songId)) {
+        fetch(`/api/share?id=${songId}`)
+          .then(res => res.json())
+          .then(data => {
+            if (data.success && data.song) {
+              const s = data.song;
+              setGeneratedSong({
+                title: s.title,
+                lyrics: s.lyrics,
+                musicDescription: s.music_description,
+                albumArtUrl: s.album_art_url,
+              });
+              if (s.audio_url) {
+                setSongUrl(s.audio_url);
+                setMiniPlayerSong({
+                  url: s.audio_url,
+                  title: s.title,
+                  albumArtUrl: s.album_art_url,
+                  subtitle: `${s.music_description.genre} \u2022 ${s.music_description.mood} \u2022 ${s.music_description.vocals} vocals`,
+                  songId: s.id,
+                });
+              }
+              setEditingSongId(s.id);
+              setView('create');
+              // Clean the URL without reloading
+              window.history.replaceState({}, '', window.location.pathname);
+            }
+          })
+          .catch(() => {});
+      }
+    }
+  }, []);
+
+  // Persist view
+  useEffect(() => {
+    sessionStorage.setItem('beatbloom-view', view);
+  }, [view]);
+
+  // Dark mode effect
+  useEffect(() => {
+    document.documentElement.classList.toggle('dark', darkMode);
+    localStorage.setItem('beatbloom-dark-mode', String(darkMode));
+  }, [darkMode]);
+
+  const addToast = useCallback((type: ToastMessage['type'], message: string) => {
+    const id = Date.now().toString();
+    setToasts((prev) => [...prev, { id, type, message }]);
+  }, []);
+
+  const dismissToast = useCallback((id: string) => {
+    setToasts((prev) => prev.filter((t) => t.id !== id));
   }, []);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (showSettings && !(event.target as Element).closest('.user-menu-container')) {
+      if (showSettings && !(event.target as Element).closest('.user-menu-container') && !(event.target as Element).closest('.settings-dropdown')) {
         setShowSettings(false);
       }
     };
@@ -46,65 +134,117 @@ const App: React.FC = () => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [showSettings]);
 
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
   const loadSongs = async () => {
-    console.log('📂 Loading songs from database...');
+    setSongsLoading(true);
+    setSongsError(null);
     try {
-      const songs = await dbService.getAllSongs();
-      console.log('✅ Loaded', songs.length, 'songs from database');
+      const { songs } = await dbService.getAllSongs();
       setSavedSongs(songs);
-    } catch (error) {
-      console.error('❌ Error loading songs:', error);
+      // Update cache and start background audio caching
+      cacheService.setCachedSongs(songs);
+      cacheService.cacheAllSongAudio(songs);
+    } catch {
+      setSongsError('Failed to load songs. Please try again.');
+    } finally {
+      setSongsLoading(false);
     }
   };
 
   const handleGenerate = useCallback(async () => {
     if (!audioBlob) {
-      setError('No recording available to generate from.');
+      addToast('error', 'No recording available. Please record something first.');
       return;
     }
-    handleReset(true); // Soft reset
+    handleReset(true);
     setIsLoading(true);
 
     try {
       const song = await generateSongFromHum(audioBlob);
       setGeneratedSong(song);
     } catch (err) {
-      console.error(err);
-      setError(err instanceof Error ? err.message : 'An unknown error occurred during generation.');
+      const msg = err instanceof Error ? err.message : 'An unknown error occurred during generation.';
+      setError(msg);
+      addToast('error', msg);
     } finally {
       setIsLoading(false);
     }
-  }, [audioBlob]);
+  }, [audioBlob, addToast]);
+
+  const handleCancelMusicGeneration = useCallback(() => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+  }, []);
 
   const handleGenerateMusic = useCallback(async (lyrics: string, tags: string, description: MusicDescription, duration: number = 60) => {
     if (!generatedSong) return;
+
+    // Cancel any ongoing generation
+    handleCancelMusicGeneration();
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+
     setIsGeneratingMusic(true);
     setMusicError(null);
     setSongUrl(null);
 
-    console.log('🎵 App.tsx - Generating music with model:', selectedMusicModel, 'duration:', duration, 'seconds');
-
     try {
-      const { audioUrl, audioBlob: generatedAudioBlob } = await generateMusic(lyrics, tags, duration, selectedMusicModel);
+      const { audioUrl, audioBlob: generatedAudioBlob } = await generateMusic(lyrics, tags, duration, selectedMusicModel, controller.signal);
       setSongUrl(audioUrl);
+
+      // Open mini player
+      setMiniPlayerSong({
+        url: audioUrl,
+        title: generatedSong.title,
+        albumArtUrl: generatedSong.albumArtUrl,
+        subtitle: `${description.genre} \u2022 ${description.mood} \u2022 ${description.vocals} vocals`,
+      });
+
+      addToast('success', 'Your song is ready!');
       
-      // Save the complete song to database
-      await dbService.addSong({
-        title: generatedSong.title, // Keep original title for now, could make it editable later
+      const savedId = await dbService.addSong({
+        title: generatedSong.title,
         lyrics,
         musicDescription: description,
         albumArtUrl: generatedSong.albumArtUrl,
-        generatedSongBlob: generatedAudioBlob, // Store the generated song
+        audioUrl,
+        generatedSongBlob: generatedAudioBlob,
+        parentId: editingSongId,
       });
-      await loadSongs(); // Refresh list
+
+      // Track the new song ID for future versioning
+      if (savedId) {
+        setEditingSongId(savedId);
+        setMiniPlayerSong(prev => prev ? { ...prev, songId: savedId } : prev);
+      }
+
+      await loadSongs();
 
     } catch (err) {
-      console.error(err);
-      setMusicError(err instanceof Error ? err.message : 'An unknown error occurred while creating the song.');
+      if (err instanceof DOMException && err.name === 'AbortError') {
+        addToast('info', 'Music generation cancelled.');
+      } else {
+        const msg = err instanceof Error ? err.message : 'An unknown error occurred while creating the song.';
+        setMusicError(msg);
+        addToast('error', msg);
+      }
     } finally {
       setIsGeneratingMusic(false);
+      abortControllerRef.current = null;
     }
-  }, [generatedSong, audioBlob]);
+  }, [generatedSong, selectedMusicModel, addToast, handleCancelMusicGeneration]);
 
   const handleReset = (soft: boolean = false) => {
     setGeneratedSong(null);
@@ -113,31 +253,73 @@ const App: React.FC = () => {
     setMusicError(null);
     setIsLoading(false);
     setIsGeneratingMusic(false);
+    handleCancelMusicGeneration();
     if (!soft) {
       setRecordingStatus('idle');
       setAudioBlob(null);
       setAudioURL(null);
       setView('create');
+      setMiniPlayerSong(null);
+      setEditingSongId(null);
     }
   };
 
   const handleDeleteSong = async (id: number) => {
+    if (!window.confirm('Are you sure you want to delete this song? This cannot be undone.')) {
+      return;
+    }
     await dbService.deleteSong(id);
+    await cacheService.removeCachedSong(id);
     await loadSongs();
   };
 
   const handleViewSong = async (song: SavedSong) => {
-    const { audioBlob, ...restOfSong } = song;
-    setGeneratedSong(restOfSong);
-    
-    // Use the audio blob directly (it's already stored as a blob in the database)
-    if (audioBlob && audioBlob.size > 0) {
-      const url = URL.createObjectURL(audioBlob);
-      setSongUrl(url);
+    // Revoke previous object URL to prevent memory leak
+    if (previousObjectUrl) {
+      URL.revokeObjectURL(previousObjectUrl);
+      setPreviousObjectUrl(null);
     }
-    
+
+    // Try to use cached audio first, fall back to network URL
+    if (song.audioUrl) {
+      const cachedUrl = await cacheService.getCachedAudioUrl(song.id);
+      const playUrl = cachedUrl || song.audioUrl;
+      if (cachedUrl) setPreviousObjectUrl(cachedUrl);
+
+      setMiniPlayerSong({
+        url: playUrl,
+        title: song.title,
+        albumArtUrl: song.albumArtUrl,
+        subtitle: `${song.musicDescription.genre} \u2022 ${song.musicDescription.mood} \u2022 ${song.musicDescription.vocals} vocals`,
+        songId: song.id,
+      });
+    }
+  };
+
+  const handleViewSongDetails = async (song: SavedSong) => {
+    setGeneratedSong({
+      title: song.title,
+      lyrics: song.lyrics,
+      musicDescription: song.musicDescription,
+      albumArtUrl: song.albumArtUrl,
+    });
+    // Set the song ID for versioning — new generations will be versions of this song
+    setEditingSongId(song.parentId || song.id);
+    if (song.audioUrl) {
+      setSongUrl(song.audioUrl);
+      const cachedUrl = await cacheService.getCachedAudioUrl(song.id);
+      const playUrl = cachedUrl || song.audioUrl;
+      if (cachedUrl) setPreviousObjectUrl(cachedUrl);
+      setMiniPlayerSong({
+        url: playUrl,
+        title: song.title,
+        albumArtUrl: song.albumArtUrl,
+        subtitle: `${song.musicDescription.genre} \u2022 ${song.musicDescription.mood} \u2022 ${song.musicDescription.vocals} vocals`,
+        autoPlay: false,
+        songId: song.id,
+      });
+    }
     setView('create');
-    // Clean up other states
     setRecordingStatus('idle');
     setAudioBlob(null);
     setAudioURL(null);
@@ -154,8 +336,8 @@ const App: React.FC = () => {
       onClick={onClick}
       className={`px-3 py-2 text-sm font-medium rounded-xl transition-colors duration-200 ${
         active
-          ? 'bg-stone-950 text-white'
-          : 'text-stone-400 hover:text-stone-600'
+          ? 'bg-primary text-primary-foreground'
+          : 'text-muted-foreground hover:text-foreground'
       }`}
     >
       {children}
@@ -163,43 +345,125 @@ const App: React.FC = () => {
   );
 
   return (
-    <div 
-      className="h-screen w-screen overflow-hidden font-sans p-5"
-      style={{
-        backgroundImage: `url('/assets/Background01.png')`,
-        backgroundSize: 'cover',
-        backgroundPosition: 'center',
-        backgroundRepeat: 'no-repeat'
-      }}
-    >
-      <div className="h-full w-full bg-white rounded-[32px] shadow-2xl flex flex-col overflow-hidden">
+    <>
+      {/* Toast notifications */}
+      <Toast toasts={toasts} onDismiss={dismissToast} />
+
+      {/* Mobile View */}
+      {isMobile ? (
+        <div className="h-screen w-screen overflow-hidden font-sans bg-background text-foreground flex flex-col">
+          <MobileHeader onSettingsClick={() => setShowSettings(!showSettings)} />
+
+          {/* Main Content */}
+          <main className="flex-1 flex flex-col overflow-hidden">
+            {view === 'my-songs' ? (
+              songsLoading ? (
+                <div className="flex-1 flex items-center justify-center">
+                  <div className="w-6 h-6 border-2 border-t-transparent border-foreground/60 rounded-full animate-spin"></div>
+                </div>
+              ) : songsError ? (
+                <div className="flex-1 flex flex-col items-center justify-center px-5">
+                  <p className="text-destructive mb-3">{songsError}</p>
+                  <button onClick={loadSongs} className="px-4 py-2 bg-primary text-primary-foreground rounded-xl">Retry</button>
+                </div>
+              ) : (
+                <MobileMySongsView songs={savedSongs} onView={handleViewSong} onViewDetails={handleViewSongDetails} onDelete={handleDeleteSong} />
+              )
+            ) : isLoading ? (
+              <div className="flex-1 flex items-center justify-center">
+                <Loader />
+              </div>
+            ) : generatedSong ? (
+              <>
+                <MobileSongDrawer 
+                  open={true}
+                  onOpenChange={(open) => {
+                    if (!open) {
+                      setGeneratedSong(null);
+                      setSongUrl(null);
+                    }
+                  }}
+                  song={generatedSong}
+                  isGenerating={isGeneratingMusic}
+                  onGenerateMusic={handleGenerateMusic}
+                  onCancelGeneration={handleCancelMusicGeneration}
+                  selectedModel={MUSIC_MODELS[selectedMusicModel]}
+                />
+              </>
+            ) : (
+              <MobileRecorderControl
+                recordingStatus={recordingStatus}
+                setRecordingStatus={setRecordingStatus}
+                setAudioBlob={setAudioBlob}
+                setAudioURL={setAudioURL}
+                audioURL={audioURL}
+                onGenerate={handleGenerate}
+                onReset={() => handleReset(false)}
+              />
+            )}
+          </main>
+
+          <MobileBottomNav activeView={view} onViewChange={setView} />
+
+          {/* Mini Player - spacer + player for mobile */}
+          {miniPlayerSong && (
+            <>
+              <div className="h-[84px] flex-shrink-0" />
+              <MiniPlayer
+                songUrl={miniPlayerSong.url}
+                title={miniPlayerSong.title}
+                albumArtUrl={miniPlayerSong.albumArtUrl}
+                subtitle={miniPlayerSong.subtitle}
+                autoPlay={miniPlayerSong.autoPlay !== false}
+                songId={miniPlayerSong.songId}
+                onClose={() => setMiniPlayerSong(null)}
+              />
+            </>
+          )}
+        </div>
+      ) : (
+        <>
+        {/* Desktop View */}
+        <div className="h-screen w-screen overflow-hidden font-sans bg-background text-foreground">
+          <div className="h-full w-full flex flex-col overflow-hidden">
           {/* Header */}
-          <header className="h-[66px] flex items-center justify-between px-6 py-3 border-b border-stone-100">
-            <div className="flex items-center gap-2.5">
+          <header className="h-[66px] flex items-center justify-between px-6 py-3 border-b border-border">
+            <button onClick={() => { handleReset(false); setView('create'); }} className="flex items-center gap-2.5 hover:opacity-80 transition-opacity">
               <img src="/assets/BeatBloomLogo.png" alt="BeatBloom" className="w-10 h-10 rounded-xl" />
-              <h1 className="text-2xl font-bold text-stone-950">BeatBloom</h1>
-            </div>
+              <h1 className="text-2xl font-bold text-foreground">BeatBloom</h1>
+            </button>
             
-            <nav className="border border-stone-200 rounded-2xl p-[3px]">
+            <nav className="border border-border rounded-2xl p-[3px]">
               <div className="flex">
                 <NavButton active={view === 'create'} onClick={() => setView('create')}>
                   Create
                 </NavButton>
-                <NavButton active={view === 'my-songs'} onClick={() => {
-                  setView('my-songs');
-                  loadSongs(); // Reload songs when switching to My Songs view
-                }}>
+                <NavButton active={view === 'my-songs'} onClick={() => setView('my-songs')}>
                   My songs
                 </NavButton>
               </div>
             </nav>
 
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2">
+              {/* New Song button */}
+              <button 
+                onClick={() => {
+                  handleReset(false);
+                  setView('create');
+                }}
+                className="w-10 h-10 rounded-full hover:bg-muted transition-colors flex items-center justify-center"
+                aria-label="New song"
+              >
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" className="text-muted-foreground">
+                  <path d="M10 4.16666V15.8333M4.16667 10H15.8333" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+              </button>
+
               <button 
                 onClick={() => setShowModelSelection(!showModelSelection)}
-                className="w-10 h-10 rounded-full hover:bg-stone-100 transition-colors flex items-center justify-center"
+                className="w-10 h-10 rounded-full hover:bg-muted transition-colors flex items-center justify-center"
               >
-                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" className="text-stone-600">
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" className="text-muted-foreground">
                   <path d="M10 1.66666V5.83333M10 14.1667V18.3333M5.83333 10H1.66667M18.3333 10H14.1667M15.8333 15.8333L13.3333 13.3333M15.8333 4.16666L13.3333 6.66666M4.16667 15.8333L6.66667 13.3333M4.16667 4.16666L6.66667 6.66666" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
                 </svg>
               </button>
@@ -207,23 +471,33 @@ const App: React.FC = () => {
               <div className="relative user-menu-container">
                 <button 
                   onClick={() => setShowSettings(!showSettings)}
-                  className="w-10 h-10 bg-stone-300 rounded-full hover:bg-stone-400 transition-colors overflow-hidden"
+                  className="w-10 h-10 bg-muted rounded-full hover:bg-accent transition-colors overflow-hidden flex items-center justify-center"
                 >
-                  <img 
-                    src="/assets/Profile.png" 
-                    alt="User avatar" 
-                    className="w-full h-full object-cover"
-                  />
+                  <svg width="20" height="20" viewBox="0 0 20 20" fill="none" className="text-muted-foreground">
+                    <path d="M10 10C12.0711 10 13.75 8.32107 13.75 6.25C13.75 4.17893 12.0711 2.5 10 2.5C7.92893 2.5 6.25 4.17893 6.25 6.25C6.25 8.32107 7.92893 10 10 10Z" stroke="currentColor" strokeWidth="1.5"/>
+                    <path d="M3.75 17.5C3.75 14.0482 6.54822 11.25 10 11.25C13.4518 11.25 16.25 14.0482 16.25 17.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                  </svg>
                 </button>
               </div>
             </div>
           </header>
 
           {/* Main Content */}
-          <main className="flex-1 flex flex-col">
+          <main className="flex-1 flex flex-col overflow-hidden">
             {view === 'my-songs' ? (
-              <div className="w-full p-5">
-                <MySongsView songs={savedSongs} onView={handleViewSong} onDelete={handleDeleteSong} />
+              <div className="w-full p-5 flex-1 overflow-y-auto">
+                {songsLoading ? (
+                  <div className="flex items-center justify-center py-32">
+                    <div className="w-6 h-6 border-2 border-t-transparent border-foreground/60 rounded-full animate-spin"></div>
+                  </div>
+                ) : songsError ? (
+                  <div className="flex flex-col items-center justify-center py-32">
+                    <p className="text-destructive mb-3">{songsError}</p>
+                    <button onClick={loadSongs} className="px-4 py-2 bg-primary text-primary-foreground rounded-xl">Retry</button>
+                  </div>
+                ) : (
+                  <MySongsView songs={savedSongs} onView={handleViewSong} onViewDetails={handleViewSongDetails} onDelete={handleDeleteSong} />
+                )}
               </div>
             ) : isLoading ? (
               <div className="flex-1 flex items-center justify-center">
@@ -234,16 +508,18 @@ const App: React.FC = () => {
                 song={generatedSong}
                 onReset={() => handleReset(false)}
                 onGenerateMusic={handleGenerateMusic}
+                onCancelGeneration={handleCancelMusicGeneration}
                 isGeneratingMusic={isGeneratingMusic}
                 songUrl={songUrl}
                 musicError={musicError}
                 selectedModel={MUSIC_MODELS[selectedMusicModel]}
+                songId={editingSongId}
               />
             ) : (
               <div className="flex-1 flex flex-col items-center justify-center px-[411px] py-[180px]">
                 <div className="flex flex-col items-center gap-10 w-[600px]">
                   {recordingStatus !== 'stopped' && (
-                    <h2 className="text-5xl font-medium text-black text-center leading-none">
+                    <h2 className="text-5xl font-medium text-foreground text-center leading-none">
                       Hum a tune, say a few words, and get a masterpiece
                     </h2>
                   )}
@@ -257,7 +533,7 @@ const App: React.FC = () => {
                   />
                   
                   {error && (
-                    <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-center">
+                    <div className="bg-destructive/10 border border-destructive/20 text-destructive px-4 py-3 rounded-lg text-center">
                       <p className="font-semibold">Generation Failed</p>
                       <p className="text-sm">{error}</p>
                     </div>
@@ -268,13 +544,13 @@ const App: React.FC = () => {
                       <button
                         onClick={handleGenerate}
                         disabled={!audioBlob || isLoading}
-                        className="w-[300px] h-14 bg-stone-950 text-white font-medium text-xl rounded-3xl hover:bg-stone-800 transition-colors disabled:bg-stone-400 disabled:cursor-not-allowed"
+                        className="w-[300px] h-14 bg-primary text-primary-foreground font-medium text-xl rounded-3xl hover:opacity-90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         Generate lyrics & song art
                       </button>
                       <button
                         onClick={() => handleReset(false)}
-                        className="w-[300px] h-14 bg-stone-100 text-stone-500 font-medium text-xl rounded-3xl hover:bg-stone-200 transition-colors"
+                        className="w-[300px] h-14 bg-secondary text-secondary-foreground font-medium text-xl rounded-3xl hover:bg-accent transition-colors"
                       >
                         Record again
                       </button>
@@ -284,82 +560,96 @@ const App: React.FC = () => {
               </div>
             )}
           </main>
+
+          {/* Mini Player - Desktop (inside flex layout, not fixed) */}
+          {miniPlayerSong && (
+            <div className="flex-shrink-0">
+              <MiniPlayer
+                songUrl={miniPlayerSong.url}
+                title={miniPlayerSong.title}
+                albumArtUrl={miniPlayerSong.albumArtUrl}
+                subtitle={miniPlayerSong.subtitle}
+                autoPlay={miniPlayerSong.autoPlay !== false}
+                onClose={() => setMiniPlayerSong(null)}
+                songId={miniPlayerSong.songId}
+                inline
+              />
+            </div>
+          )}
         </div>
+      </div>
 
       {/* Settings Menu Dropdown */}
       {showSettings && (
         <div className="fixed inset-0 z-40" onClick={() => setShowSettings(false)}>
           <div 
-            className="absolute right-4 top-20 bg-white border border-stone-100 rounded-[24px] w-[320px] shadow-2xl overflow-hidden"
+            className="absolute right-4 top-20 bg-popover border border-border rounded-[24px] w-[320px] shadow-2xl overflow-hidden settings-dropdown"
             onClick={(e) => e.stopPropagation()}
           >
             {/* User Info Section */}
             <div className="p-3 space-y-2.5">
               {/* User Details */}
-              <div className="bg-stone-50 rounded p-4 space-y-3">
+              <div className="bg-muted rounded p-4 space-y-3">
                 <div className="flex items-center gap-3">
-                  <img 
-                    src="/assets/Profile.png" 
-                    alt="Profile" 
-                    className="w-10 h-10 rounded-full object-cover flex-shrink-0"
-                  />
-                  <div className="flex-1">
-                    <p className="font-medium text-sm text-stone-950 leading-5">Varun Varshney</p>
-                    <p className="font-normal text-sm text-stone-500 leading-5">varunv.ux@gmail.com</p>
+                  <div className="w-10 h-10 rounded-full bg-accent flex items-center justify-center flex-shrink-0">
+                    <svg width="20" height="20" viewBox="0 0 20 20" fill="none" className="text-muted-foreground">
+                      <path d="M10 10C12.0711 10 13.75 8.32107 13.75 6.25C13.75 4.17893 12.0711 2.5 10 2.5C7.92893 2.5 6.25 4.17893 6.25 6.25C6.25 8.32107 7.92893 10 10 10Z" stroke="currentColor" strokeWidth="1.5"/>
+                      <path d="M3.75 17.5C3.75 14.0482 6.54822 11.25 10 11.25C13.4518 11.25 16.25 14.0482 16.25 17.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                    </svg>
                   </div>
-                </div>
-              </div>
-
-              {/* Upgrade Section */}
-              <div className="bg-stone-50 rounded p-4 pb-3 space-y-3">
-                <button className="w-full bg-stone-950 text-stone-100 font-medium text-sm leading-5 px-3 py-2.5 rounded-2xl hover:bg-stone-800 transition-colors">
-                  Upgrade to Pro
-                </button>
-                <div className="flex items-center justify-center gap-1 text-xs text-stone-500 leading-4">
-                  <span>Free Plan</span>
-                  <span>・</span>
-                  <span>2 songs left</span>
+                  <div className="flex-1">
+                    <p className="font-medium text-sm text-foreground leading-5">Guest User</p>
+                    <p className="font-normal text-sm text-muted-foreground leading-5">Sign in for full features</p>
+                  </div>
                 </div>
               </div>
             </div>
 
             {/* Dividers */}
-            <div className="h-px bg-stone-100"></div>
-            <div className="h-px bg-stone-100"></div>
+            <div className="h-px bg-border"></div>
 
             {/* Menu Items */}
             <div className="px-2 py-3 space-y-px">
-              <button className="w-full flex items-center gap-3 pl-2 pr-0 py-2 rounded-lg hover:bg-stone-50 transition-colors">
-                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" className="text-stone-500">
-                  <path d="M13.3333 11.6666C14.6667 12.5 15.8333 13.3333 16.6667 14.1666C17.5 15 18.3333 16.6666 18.3333 16.6666M6.66667 11.6666C5.33333 12.5 4.16667 13.3333 3.33333 14.1666C2.5 15 1.66667 16.6666 1.66667 16.6666M10 11.6666V3.33331M10 3.33331L13.3333 6.66665M10 3.33331L6.66667 6.66665" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
-                <span className="font-medium text-sm text-stone-500 leading-5">Share</span>
+              {/* Dark Mode Toggle */}
+              <button
+                onClick={() => setDarkMode(!darkMode)}
+                className="w-full flex items-center gap-3 pl-2 pr-2 py-2 rounded-lg hover:bg-muted transition-colors"
+              >
+                {darkMode ? (
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" className="text-muted-foreground">
+                    <circle cx="12" cy="12" r="5" stroke="currentColor" strokeWidth="1.5"/>
+                    <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                  </svg>
+                ) : (
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" className="text-muted-foreground">
+                    <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                )}
+                <span className="font-medium text-sm text-muted-foreground leading-5">{darkMode ? 'Light mode' : 'Dark mode'}</span>
               </button>
-              
-              <button className="w-full flex items-center gap-3 pl-2 pr-0 py-2 rounded-lg hover:bg-stone-50 transition-colors">
-                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" className="text-stone-500">
+
+              <a 
+                href="https://github.com" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="w-full flex items-center gap-3 pl-2 pr-0 py-2 rounded-lg hover:bg-muted transition-colors"
+              >
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" className="text-muted-foreground">
                   <circle cx="10" cy="10" r="8.33333" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
                   <path d="M10 13.3333V10M10 6.66667H10.0083" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
                 </svg>
-                <span className="font-medium text-sm text-stone-500 leading-5">About</span>
-              </button>
-              
-              <button className="w-full flex items-center gap-3 pl-2 pr-0 py-2 rounded-lg hover:bg-stone-50 transition-colors">
-                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" className="text-stone-500">
-                  <path d="M7.5 17.5H4.16667C3.72464 17.5 3.30072 17.3244 2.98816 17.0118C2.67559 16.6993 2.5 16.2754 2.5 15.8333V4.16667C2.5 3.72464 2.67559 3.30072 2.98816 2.98816C3.30072 2.67559 3.72464 2.5 4.16667 2.5H7.5M13.3333 14.1667L17.5 10M17.5 10L13.3333 5.83333M17.5 10H7.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
-                <span className="font-medium text-sm text-stone-500 leading-5">Sign out</span>
-              </button>
+                <span className="font-medium text-sm text-muted-foreground leading-5">About</span>
+              </a>
             </div>
 
             {/* Bottom Divider */}
-            <div className="h-px bg-stone-100"></div>
+            <div className="h-px bg-border"></div>
 
             {/* Footer Links */}
-            <div className="px-2 py-4 flex items-center justify-center gap-4 text-xs text-stone-500 leading-4">
-              <button className="hover:text-stone-700 transition-colors">Privacy</button>
-              <button className="hover:text-stone-700 transition-colors">Terms</button>
-              <button className="hover:text-stone-700 transition-colors">Feedback</button>
+            <div className="px-2 py-4 flex items-center justify-center gap-4 text-xs text-muted-foreground leading-4">
+              <button className="hover:text-foreground transition-colors">Privacy</button>
+              <button className="hover:text-foreground transition-colors">Terms</button>
+              <button className="hover:text-foreground transition-colors">Feedback</button>
             </div>
           </div>
         </div>
@@ -368,14 +658,14 @@ const App: React.FC = () => {
       {/* Model Selection Modal */}
       {showModelSelection && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60]" onClick={() => setShowModelSelection(false)}>
-          <div className="bg-white rounded-3xl p-8 max-w-md w-full mx-4 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-popover rounded-3xl p-8 max-w-md w-full mx-4 shadow-2xl" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-6">
-              <h2 className="text-2xl font-bold text-stone-950">Music Model</h2>
+              <h2 className="text-2xl font-bold text-foreground">Music Model</h2>
               <button 
                 onClick={() => setShowModelSelection(false)}
-                className="w-8 h-8 rounded-full hover:bg-stone-100 transition-colors flex items-center justify-center"
+                className="w-8 h-8 rounded-full hover:bg-muted transition-colors flex items-center justify-center"
               >
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" className="text-stone-600">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" className="text-muted-foreground">
                   <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                 </svg>
               </button>
@@ -384,7 +674,7 @@ const App: React.FC = () => {
             <div className="space-y-6">
               {/* Music Model Selection */}
               <div>
-                <label className="block text-sm font-medium text-stone-700 mb-3">
+                <label className="block text-sm font-medium text-muted-foreground mb-3">
                   Select Music Generation Model
                 </label>
                 <div className="space-y-3">
@@ -394,37 +684,37 @@ const App: React.FC = () => {
                       onClick={() => setSelectedMusicModel(model.id)}
                       className={`w-full p-4 rounded-xl border-2 text-left transition-all ${
                         selectedMusicModel === model.id
-                          ? 'border-stone-950 bg-stone-50'
-                          : 'border-stone-200 hover:border-stone-300'
+                          ? 'border-primary bg-muted'
+                          : 'border-border hover:border-accent'
                       }`}
                     >
                       <div className="flex items-start justify-between">
                         <div className="flex-1">
                           <div className="flex items-center gap-2 mb-1">
-                            <h3 className="font-semibold text-stone-950">{model.name}</h3>
+                            <h3 className="font-semibold text-foreground">{model.name}</h3>
                             {model.id === DEFAULT_MODEL && (
                               <span className="px-2 py-0.5 bg-green-100 text-green-700 text-xs font-medium rounded-full">
                                 Recommended
                               </span>
                             )}
                           </div>
-                          <p className="text-sm text-stone-600">{model.description}</p>
+                          <p className="text-sm text-muted-foreground">{model.description}</p>
                           <div className="mt-2 flex flex-wrap gap-2">
-                            <span className="text-xs text-stone-500">
+                            <span className="text-xs text-muted-foreground">
                               Max: {model.maxDuration}s
                             </span>
                             {model.supports.lyrics && (
-                              <span className="text-xs text-stone-500">• Lyrics</span>
+                              <span className="text-xs text-muted-foreground">• Lyrics</span>
                             )}
                             {model.supports.tags && (
-                              <span className="text-xs text-stone-500">• Tags</span>
+                              <span className="text-xs text-muted-foreground">• Tags</span>
                             )}
                           </div>
                         </div>
                         <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${
                           selectedMusicModel === model.id
-                            ? 'border-stone-950 bg-stone-950'
-                            : 'border-stone-300'
+                            ? 'border-primary bg-primary'
+                            : 'border-muted-foreground/30'
                         }`}>
                           {selectedMusicModel === model.id && (
                             <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
@@ -438,10 +728,10 @@ const App: React.FC = () => {
                 </div>
               </div>
 
-              <div className="pt-4 border-t border-stone-200">
+              <div className="pt-4 border-t border-border">
                 <button
                   onClick={() => setShowModelSelection(false)}
-                  className="w-full h-12 bg-stone-950 text-white font-medium rounded-2xl hover:bg-stone-800 transition-colors"
+                  className="w-full h-12 bg-primary text-primary-foreground font-medium rounded-2xl hover:opacity-90 transition-colors"
                 >
                   Done
                 </button>
@@ -450,7 +740,11 @@ const App: React.FC = () => {
           </div>
         </div>
       )}
-    </div>
+      </>
+    )}
+
+    {/* No external mini player for desktop — it's inline now */}
+    </>
   );
 };
 

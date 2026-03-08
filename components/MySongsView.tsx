@@ -4,24 +4,19 @@ import { SavedSong } from '../types';
 interface MySongsViewProps {
   songs: SavedSong[];
   onView: (song: SavedSong) => Promise<void>;
+  onViewDetails: (song: SavedSong) => Promise<void>;
   onDelete: (id: number) => void;
 }
 
-const MySongsView: React.FC<MySongsViewProps> = ({ songs, onView, onDelete }) => {
+const MySongsView: React.FC<MySongsViewProps> = ({ songs, onView, onViewDetails, onDelete }) => {
   if (songs.length === 0) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center py-32">
-        <h2 className="text-3xl font-medium text-stone-950 mb-4">No Saved Songs Yet</h2>
-        <p className="text-stone-500 text-lg">Go create your first masterpiece!</p>
+        <h2 className="text-3xl font-medium text-foreground mb-4">No Saved Songs Yet</h2>
+        <p className="text-muted-foreground text-lg">Go create your first masterpiece!</p>
       </div>
     );
   }
-
-  const formatDuration = (duration: number) => {
-    const minutes = Math.floor(duration / 60);
-    const seconds = duration % 60;
-    return `${minutes}:${seconds.toString().padStart(2, '0')} mins`;
-  };
 
   const formatDate = (date: Date) => {
     const month = date.toLocaleDateString('en-US', { month: 'short' });
@@ -34,28 +29,35 @@ const MySongsView: React.FC<MySongsViewProps> = ({ songs, onView, onDelete }) =>
       {songs.map(song => (
         <div 
           key={song.id} 
-          className="bg-stone-100 rounded-[24px] pl-2 pr-5 py-2 flex items-center justify-between"
+          className="bg-secondary rounded-[24px] pl-2 pr-5 py-2 flex items-center justify-between"
         >
           {/* Left section: Album art + Song details */}
           <div className="flex items-center gap-4">
             {/* Album Art */}
             <img 
               src={song.albumArtUrl} 
-              alt="Album Art" 
+              alt={`${song.title} album art`}
               className="w-[100px] h-[100px] rounded-2xl object-cover flex-shrink-0" 
             />
             
             {/* Song Details */}
             <div className="flex flex-col gap-1 w-[360px]">
-              <h3 className="font-medium text-base text-black leading-5">
-                {song.title}
-              </h3>
-              <div className="text-xs text-stone-500 leading-4">
+              <div className="flex items-center gap-2">
+                <h3 className="font-medium text-base text-foreground leading-5">
+                  {song.title}
+                </h3>
+                {song.versionNumber && song.versionNumber > 1 && (
+                  <span className="px-1.5 py-0.5 bg-primary/10 text-primary text-[10px] font-medium rounded-full leading-none">
+                    v{song.versionNumber}
+                  </span>
+                )}
+              </div>
+              <div className="text-xs text-muted-foreground leading-4">
                 <p className="truncate">
                   {song.musicDescription.genre} • {song.musicDescription.mood} • {song.musicDescription.vocals}
                 </p>
                 <p className="mt-0.5">
-                  {formatDuration(245)} • {formatDate(song.createdAt)}
+                  {formatDate(song.createdAt)}
                 </p>
               </div>
             </div>
@@ -63,20 +65,40 @@ const MySongsView: React.FC<MySongsViewProps> = ({ songs, onView, onDelete }) =>
           
           {/* Right section: Action buttons */}
           <div className="flex items-center gap-3 opacity-80">
-            {/* Edit button */}
+            {/* Share button */}
             <button 
-              className="bg-stone-100 p-2.5 rounded-xl hover:bg-stone-200 transition-colors"
-              aria-label="Edit song"
+              onClick={() => {
+                const shareUrl = `${window.location.origin}?song=${song.id}`;
+                if (navigator.share) {
+                  navigator.share({ title: song.title, text: `Check out "${song.title}" - made with BeatBloom!`, url: shareUrl });
+                } else {
+                  navigator.clipboard.writeText(shareUrl);
+                }
+              }}
+              className="bg-secondary p-2.5 rounded-xl hover:bg-accent transition-colors"
+              aria-label="Share song"
             >
-              <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M14.1667 2.5C14.3856 2.28113 14.6454 2.10752 14.9314 1.98906C15.2173 1.87061 15.5238 1.80969 15.8333 1.80969C16.1429 1.80969 16.4493 1.87061 16.7353 1.98906C17.0213 2.10752 17.281 2.28113 17.5 2.5C17.7189 2.71887 17.8925 2.97862 18.0109 3.26458C18.1294 3.55055 18.1903 3.85702 18.1903 4.16667C18.1903 4.47631 18.1294 4.78278 18.0109 5.06875C17.8925 5.35471 17.7189 5.61446 17.5 5.83333L6.25 17.0833L1.66667 18.3333L2.91667 13.75L14.1667 2.5Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
               </svg>
             </button>
-            
+
+            {/* View details button */}
+            <button 
+              onClick={() => onViewDetails(song)}
+              className="bg-secondary p-2.5 rounded-xl hover:bg-accent transition-colors"
+              aria-label="View details"
+            >
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M10 12.5C11.3807 12.5 12.5 11.3807 12.5 10C12.5 8.61929 11.3807 7.5 10 7.5C8.61929 7.5 7.5 8.61929 7.5 10C7.5 11.3807 8.61929 12.5 10 12.5Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                <path d="M1.66667 10C1.66667 10 4.16667 4.16667 10 4.16667C15.8333 4.16667 18.3333 10 18.3333 10C18.3333 10 15.8333 15.8333 10 15.8333C4.16667 15.8333 1.66667 10 1.66667 10Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+            </button>
+
             {/* Play button */}
             <button 
               onClick={() => onView(song)}
-              className="bg-stone-100 p-2.5 rounded-xl hover:bg-stone-200 transition-colors"
+              className="bg-secondary p-2.5 rounded-xl hover:bg-accent transition-colors"
               aria-label="Play song"
             >
               <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -84,45 +106,17 @@ const MySongsView: React.FC<MySongsViewProps> = ({ songs, onView, onDelete }) =>
               </svg>
             </button>
             
-            {/* Heart button */}
+            {/* Delete button */}
             <button 
-              className="bg-stone-100 p-2.5 rounded-xl hover:bg-stone-200 transition-colors"
-              aria-label="Like song"
+              onClick={() => onDelete(song.id)}
+              className="bg-secondary p-2.5 rounded-xl hover:bg-destructive/10 hover:text-destructive transition-colors"
+              aria-label="Delete song"
             >
               <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M17.3667 3.8417C16.9412 3.41589 16.4369 3.07764 15.8795 2.84582C15.3221 2.61399 14.7224 2.49316 14.1167 2.49316C13.511 2.49316 12.9113 2.61399 12.3539 2.84582C11.7965 3.07764 11.2921 3.41589 10.8667 3.8417L10 4.7084L9.13333 3.8417C8.27391 2.98228 7.10928 2.49348 5.89167 2.49348C4.67406 2.49348 3.50943 2.98228 2.65 3.8417C1.79058 4.70113 1.30178 5.86576 1.30178 7.08337C1.30178 8.30098 1.79058 9.46561 2.65 10.325L3.51667 11.1917L10 17.675L16.4833 11.1917L17.35 10.325C17.7758 9.89957 18.1141 9.39525 18.3459 8.83783C18.5777 8.28041 18.6986 7.68073 18.6986 7.07503C18.6986 6.46934 18.5777 5.86966 18.3459 5.31224C18.1141 4.75482 17.7758 4.2505 17.35 3.82503L17.3667 3.8417Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                <path d="M2.5 5H4.16667H17.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                <path d="M6.66667 5V3.33333C6.66667 2.89131 6.84226 2.46738 7.15482 2.15482C7.46738 1.84226 7.89131 1.66667 8.33333 1.66667H11.6667C12.1087 1.66667 12.5326 1.84226 12.8452 2.15482C13.1577 2.46738 13.3333 2.89131 13.3333 3.33333V5M15.8333 5V16.6667C15.8333 17.1087 15.6577 17.5326 15.3452 17.8452C15.0326 18.1577 14.6087 18.3333 14.1667 18.3333H5.83333C5.39131 18.3333 4.96738 18.1577 4.65482 17.8452C4.34226 17.5326 4.16667 17.1087 4.16667 16.6667V5H15.8333Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
             </button>
-            
-            {/* More button with dropdown */}
-            <div className="relative group/menu">
-              <button 
-                className="bg-stone-100 p-2.5 rounded-xl hover:bg-stone-200 transition-colors"
-                aria-label="More options"
-              >
-                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M10 10.8333C10.4602 10.8333 10.8333 10.4602 10.8333 10C10.8333 9.53976 10.4602 9.16666 10 9.16666C9.53976 9.16666 9.16666 9.53976 9.16666 10C9.16666 10.4602 9.53976 10.8333 10 10.8333Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                  <path d="M10 4.99999C10.4602 4.99999 10.8333 4.62689 10.8333 4.16666C10.8333 3.70642 10.4602 3.33332 10 3.33332C9.53976 3.33332 9.16666 3.70642 9.16666 4.16666C9.16666 4.62689 9.53976 4.99999 10 4.99999Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                  <path d="M10 16.6667C10.4602 16.6667 10.8333 16.2936 10.8333 15.8333C10.8333 15.3731 10.4602 15 10 15C9.53976 15 9.16666 15.3731 9.16666 15.8333C9.16666 16.2936 9.53976 16.6667 10 16.6667Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
-              </button>
-              
-              {/* Dropdown menu */}
-              <div className="absolute right-0 top-full mt-1 bg-white rounded-lg shadow-lg border border-stone-200 py-1 opacity-0 invisible group-hover/menu:opacity-100 group-hover/menu:visible transition-all duration-200 z-10 min-w-[150px]">
-                <button 
-                  onClick={() => onView(song)}
-                  className="w-full px-4 py-2 text-left text-sm text-stone-700 hover:bg-stone-50 transition-colors"
-                >
-                  View Details
-                </button>
-                <button 
-                  onClick={() => onDelete(song.id)}
-                  className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 transition-colors"
-                >
-                  Delete Song
-                </button>
-              </div>
-            </div>
           </div>
         </div>
       ))}

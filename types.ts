@@ -17,7 +17,9 @@ export interface GeneratedSong {
 export interface SavedSong extends GeneratedSong {
   id: number;
   createdAt: Date;
-  audioBlob: Blob;
+  audioUrl?: string;
+  parentId?: number | null;
+  versionNumber?: number;
 }
 
 export interface StyleSuggestion {
