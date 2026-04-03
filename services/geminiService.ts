@@ -34,8 +34,7 @@ export const generateSongFromHum = async (audioBlob: Blob): Promise<GeneratedSon
       throw new Error(data.error || 'Failed to generate song');
     }
 
-    const { title, lyrics, musicDescription, albumArtBase64, albumArtMimeType } = data.song;
-    const albumArtUrl = `data:${albumArtMimeType || 'image/png'};base64,${albumArtBase64}`;
+    const { title, lyrics, musicDescription, albumArtUrl } = data.song;
 
     return {
       title,

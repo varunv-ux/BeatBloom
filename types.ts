@@ -14,8 +14,12 @@ export interface GeneratedSong {
   albumArtUrl: string;
 }
 
-export interface SavedSong extends GeneratedSong {
+export interface SavedSong {
   id: number;
+  title: string;
+  lyrics?: string;
+  musicDescription: MusicDescription;
+  albumArtUrl: string;
   createdAt: Date;
   audioUrl?: string;
   parentId?: number | null;

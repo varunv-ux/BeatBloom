@@ -4,6 +4,8 @@ export interface ToastMessage {
   id: string;
   type: 'error' | 'success' | 'info';
   message: string;
+  actionLabel?: string;
+  onAction?: () => void;
 }
 
 interface ToastProps {
@@ -55,6 +57,14 @@ const ToastItem: React.FC<{ toast: ToastMessage; onDismiss: (id: string) => void
     <div className={`flex items-center gap-3 px-4 py-3 rounded-xl border shadow-lg animate-[fadeIn_0.2s_ease-out] ${bgColor}`}>
       <span className="flex-shrink-0">{icon}</span>
       <p className="text-sm font-medium flex-1">{toast.message}</p>
+      {toast.actionLabel && toast.onAction && (
+        <button
+          onClick={() => { toast.onAction!(); onDismiss(toast.id); }}
+          className="text-sm font-semibold underline underline-offset-2 flex-shrink-0 hover:opacity-80 transition-opacity"
+        >
+          {toast.actionLabel}
+        </button>
+      )}
       <button onClick={() => onDismiss(toast.id)} className="flex-shrink-0 opacity-60 hover:opacity-100 transition-opacity">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />

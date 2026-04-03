@@ -1,5 +1,6 @@
 import { GoogleGenAI } from "@google/genai";
 import type { VercelRequest, VercelResponse } from '@vercel/node';
+import { put } from '@vercel/blob';
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 
@@ -168,14 +169,29 @@ Your final output must be a single, valid JSON object with four keys: "title", "
       throw new Error("Failed to generate album art.");
     }
 
+    // Upload album art to Vercel Blob for persistent storage (avoids base64 in Postgres)
+    let albumArtUrl = `data:${albumArtMimeType};base64,${albumArtBase64}`;
+    if (process.env.BLOB_READ_WRITE_TOKEN) {
+      try {
+        const artBuffer = Buffer.from(albumArtBase64, 'base64');
+        const ext = albumArtMimeType === 'image/jpeg' ? 'jpg' : 'png';
+        const blob = await put(`songs/${Date.now()}-cover.${ext}`, artBuffer, {
+          access: 'public',
+          contentType: albumArtMimeType,
+        });
+        albumArtUrl = blob.url;
+      } catch {
+        // Fall back to data URL if blob upload fails
+      }
+    }
+
     return response.status(200).json({
       success: true,
       song: {
         title,
         lyrics: formattedLyrics,
         musicDescription,
-        albumArtBase64,
-        albumArtMimeType,
+        albumArtUrl,
       },
     });
   } catch (error) {

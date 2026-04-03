@@ -2,12 +2,11 @@ import { MusicModelId } from './musicModels';
 
 interface MusicGenerationResult {
   audioUrl: string;
-  audioBlob: Blob;
 }
 
 /**
  * Generates music from lyrics and tags via the server-side API route.
- * API keys are never exposed to the client.
+ * The server uploads audio to Vercel Blob for persistent storage.
  */
 export const generateMusic = async (
   lyrics: string,
@@ -29,14 +28,5 @@ export const generateMusic = async (
     throw new Error(data.error || 'Failed to generate music');
   }
 
-  const audioUrl = data.audioUrl;
-
-  // Fetch the generated audio file and return it as a blob
-  const audioResponse = await fetch(audioUrl);
-  if (!audioResponse.ok) {
-    throw new Error(`Failed to fetch the generated audio file`);
-  }
-  const audioBlob = await audioResponse.blob();
-
-  return { audioUrl, audioBlob };
+  return { audioUrl: data.audioUrl };
 };

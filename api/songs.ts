@@ -15,14 +15,31 @@ export default async function handler(
 
   try {
     if (request.method === 'GET') {
+      // Single song by ID (includes lyrics)
+      const songId = request.query.id;
+      if (songId) {
+        const id = parseInt(songId as string);
+        if (isNaN(id)) {
+          return response.status(400).json({ success: false, error: 'Invalid song ID' });
+        }
+        const result = await sql`
+          SELECT id, title, lyrics, music_description, album_art_url, audio_url, parent_id, version_number, created_at, updated_at
+          FROM songs WHERE id = ${id}
+        `;
+        if (result.rows.length === 0) {
+          return response.status(404).json({ success: false, error: 'Song not found' });
+        }
+        return response.status(200).json({ success: true, song: result.rows[0] });
+      }
+
       // Pagination params
       const page = Math.max(1, parseInt(request.query.page as string) || 1);
       const limit = Math.min(50, Math.max(1, parseInt(request.query.limit as string) || 20));
       const offset = (page - 1) * limit;
 
-      // Get songs with pagination
+      // Get songs with pagination (exclude lyrics to reduce transfer)
       const result = await sql`
-        SELECT id, title, lyrics, music_description, album_art_url, audio_url, parent_id, version_number, created_at, updated_at
+        SELECT id, title, music_description, album_art_url, audio_url, parent_id, version_number, created_at, updated_at
         FROM songs
         ORDER BY created_at DESC
         LIMIT ${limit} OFFSET ${offset}

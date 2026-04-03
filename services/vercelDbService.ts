@@ -14,51 +14,6 @@ export interface VercelSong {
 }
 
 /**
- * Upload a file to Vercel Blob storage via the API route.
- * Returns the public URL, or null if blob storage isn't configured.
- */
-const uploadToBlob = async (
-  base64Data: string,
-  filename: string,
-  contentType: string
-): Promise<string | null> => {
-  try {
-    const response = await fetch(`${API_BASE_URL}/api/upload`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ base64Data, filename, contentType }),
-    });
-
-    const data = await response.json();
-    if (data.success) {
-      return data.url;
-    }
-    // Blob storage not configured - fall back gracefully
-    return null;
-  } catch {
-    return null;
-  }
-};
-
-/**
- * Convert a blob to base64 (data portion only, no prefix)
- */
-const blobToBase64Raw = (blob: Blob): Promise<string> => {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      if (typeof reader.result === 'string') {
-        resolve(reader.result.split(',')[1]);
-      } else {
-        reject(new Error('Failed to convert blob to base64'));
-      }
-    };
-    reader.onerror = reject;
-    reader.readAsDataURL(blob);
-  });
-};
-
-/**
  * Initialize database tables via API
  */
 export const initDatabase = async (): Promise<boolean> => {
@@ -85,42 +40,9 @@ export const addSong = async (songData: {
   musicDescription: MusicDescription;
   albumArtUrl: string;
   audioUrl?: string;
-  generatedSongBlob?: Blob;
   parentId?: number | null;
 }): Promise<number | null> => {
   try {
-    let audioUrl = songData.audioUrl || null;
-
-    // Try to upload audio to blob storage
-    if (songData.generatedSongBlob && songData.generatedSongBlob.size > 0) {
-      const base64 = await blobToBase64Raw(songData.generatedSongBlob);
-      const contentType = songData.generatedSongBlob.type || 'audio/mpeg';
-      const blobUrl = await uploadToBlob(
-        base64,
-        `songs/${Date.now()}-audio.mp3`,
-        contentType
-      );
-      if (blobUrl) {
-        audioUrl = blobUrl;
-      }
-    }
-
-    // Try to upload album art to blob storage (if it's a data URL)
-    let albumArtUrl = songData.albumArtUrl;
-    if (albumArtUrl.startsWith('data:image/')) {
-      const parts = albumArtUrl.split(',');
-      const base64 = parts[1];
-      const mime = parts[0].match(/:(.*?);/)?.[1] || 'image/jpeg';
-      const blobUrl = await uploadToBlob(
-        base64,
-        `songs/${Date.now()}-cover.jpg`,
-        mime
-      );
-      if (blobUrl) {
-        albumArtUrl = blobUrl;
-      }
-    }
-
     const response = await fetch(`${API_BASE_URL}/api/songs`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -128,8 +50,8 @@ export const addSong = async (songData: {
         title: songData.title,
         lyrics: songData.lyrics,
         musicDescription: songData.musicDescription,
-        albumArtUrl,
-        audioUrl,
+        albumArtUrl: songData.albumArtUrl,
+        audioUrl: songData.audioUrl || null,
         parentId: songData.parentId || null,
       }),
     });
@@ -163,7 +85,6 @@ export const getAllSongs = async (page: number = 1, limit: number = 20): Promise
     const songs: SavedSong[] = data.songs.map((row: any) => ({
       id: row.id,
       title: row.title,
-      lyrics: row.lyrics,
       musicDescription: row.music_description,
       albumArtUrl: row.album_art_url,
       audioUrl: row.audio_url || undefined,
@@ -175,6 +96,31 @@ export const getAllSongs = async (page: number = 1, limit: number = 20): Promise
     return { songs, total: data.pagination?.total || songs.length };
   } catch {
     return { songs: [], total: 0 };
+  }
+};
+
+/**
+ * Get a single song with full details (including lyrics)
+ */
+export const getSong = async (id: number): Promise<SavedSong | null> => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/songs?id=${id}`);
+    const data = await response.json();
+    if (!data.success || !data.song) return null;
+    const row = data.song;
+    return {
+      id: row.id,
+      title: row.title,
+      lyrics: row.lyrics,
+      musicDescription: row.music_description,
+      albumArtUrl: row.album_art_url,
+      audioUrl: row.audio_url || undefined,
+      createdAt: new Date(row.created_at),
+      parentId: row.parent_id || null,
+      versionNumber: row.version_number || 1,
+    };
+  } catch {
+    return null;
   }
 };
 

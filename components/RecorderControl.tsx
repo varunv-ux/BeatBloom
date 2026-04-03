@@ -20,10 +20,14 @@ const RecorderControl: React.FC<RecorderControlProps> = ({
   const [timer, setTimer] = useState(0);
   const [timerInterval, setTimerInterval] = useState<NodeJS.Timeout | null>(null);
 
+  // Track whether we're waiting for the blob after stopping
+  const [pendingStop, setPendingStop] = useState(false);
+
   // Initialize the voice visualizer with callbacks
   const recorderControls = useVoiceVisualizer({
     onStartRecording: () => {
       setRecordingStatus('recording');
+      setPendingStop(false);
       // Start timer
       const interval = setInterval(() => {
         setTimer((prev) => prev + 1);
@@ -31,7 +35,8 @@ const RecorderControl: React.FC<RecorderControlProps> = ({
       setTimerInterval(interval);
     },
     onStopRecording: () => {
-      setRecordingStatus('stopped');
+      // Don't set 'stopped' yet — wait for recordedBlob to arrive
+      setPendingStop(true);
       // Stop timer
       if (timerInterval) {
         clearInterval(timerInterval);
@@ -71,9 +76,9 @@ const RecorderControl: React.FC<RecorderControlProps> = ({
     currentAudioTime,
   } = recorderControls;
 
-  // Handle recorded blob
+  // Handle recorded blob — only transition to 'stopped' once blob is ready
   useEffect(() => {
-    if (recordedBlob) {
+    if (recordedBlob && pendingStop) {
       setAudioBlob(recordedBlob);
       // Revoke previous URL before creating new one
       if (audioURL) {
@@ -81,8 +86,10 @@ const RecorderControl: React.FC<RecorderControlProps> = ({
       }
       const url = URL.createObjectURL(recordedBlob);
       setAudioURL(url);
+      setRecordingStatus('stopped');
+      setPendingStop(false);
     }
-  }, [recordedBlob]);
+  }, [recordedBlob, pendingStop]);
 
   // Handle errors
   useEffect(() => {
@@ -129,11 +136,8 @@ const RecorderControl: React.FC<RecorderControlProps> = ({
 
   if (recordingStatus === 'stopped' && recordedBlob) {
     return (
-      <div className="flex flex-col items-center gap-10">
-        <h3 className="text-5xl font-medium text-foreground text-center leading-none">
-          Recording complete
-        </h3>
-        <div className="h-[200px] flex items-center gap-8">
+      <div className="flex flex-col items-center gap-6">
+        <div className="h-[120px] flex items-center gap-8">
           {/* Play/Pause button */}
           <button 
             onClick={handlePlayPauseClick}
@@ -181,9 +185,9 @@ const RecorderControl: React.FC<RecorderControlProps> = ({
   }
 
   return (
-    <div className="flex flex-col items-center gap-10">
+    <div className="flex flex-col items-center gap-6">
       {/* Voice Visualizer */}
-      <div className="h-[200px] flex items-center justify-center w-[600px]">
+      <div className="h-[120px] flex items-center justify-center w-[600px]">
         {recordingStatus === 'idle' ? (
           // Static waveform when idle - more elegant and matching design
           <div className="flex items-center justify-center gap-1 h-20 w-[577px]">

@@ -83,6 +83,9 @@ export async function removeCachedSong(id: number): Promise<void> {
 
 export async function cacheAudioBlob(songId: number, audioUrl: string): Promise<void> {
   try {
+    // Skip ephemeral URLs (Replicate delivery URLs expire) — only cache persistent storage
+    if (audioUrl.includes('replicate.delivery')) return;
+
     const response = await fetch(audioUrl);
     if (!response.ok) return;
     const blob = await response.blob();

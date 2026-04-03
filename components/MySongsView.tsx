@@ -1,14 +1,16 @@
 import React from 'react';
 import { SavedSong } from '../types';
+import { shareSong } from '../lib/utils';
 
 interface MySongsViewProps {
   songs: SavedSong[];
   onView: (song: SavedSong) => Promise<void>;
   onViewDetails: (song: SavedSong) => Promise<void>;
   onDelete: (id: number) => void;
+  playingSongId?: number | null;
 }
 
-const MySongsView: React.FC<MySongsViewProps> = ({ songs, onView, onViewDetails, onDelete }) => {
+const MySongsView: React.FC<MySongsViewProps> = ({ songs, onView, onViewDetails, onDelete, playingSongId }) => {
   if (songs.length === 0) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center py-32">
@@ -29,7 +31,8 @@ const MySongsView: React.FC<MySongsViewProps> = ({ songs, onView, onViewDetails,
       {songs.map(song => (
         <div 
           key={song.id} 
-          className="bg-secondary rounded-[24px] pl-2 pr-5 py-2 flex items-center justify-between"
+          className="bg-secondary rounded-[24px] pl-2 pr-5 py-2 flex items-center justify-between cursor-pointer hover:bg-accent/50 transition-colors"
+          onClick={() => onViewDetails(song)}
         >
           {/* Left section: Album art + Song details */}
           <div className="flex items-center gap-4">
@@ -67,13 +70,10 @@ const MySongsView: React.FC<MySongsViewProps> = ({ songs, onView, onViewDetails,
           <div className="flex items-center gap-3 opacity-80">
             {/* Share button */}
             <button 
-              onClick={() => {
+              onClick={(e) => {
+                e.stopPropagation();
                 const shareUrl = `${window.location.origin}?song=${song.id}`;
-                if (navigator.share) {
-                  navigator.share({ title: song.title, text: `Check out "${song.title}" - made with BeatBloom!`, url: shareUrl });
-                } else {
-                  navigator.clipboard.writeText(shareUrl);
-                }
+                shareSong(shareUrl, song.title);
               }}
               className="bg-secondary p-2.5 rounded-xl hover:bg-accent transition-colors"
               aria-label="Share song"
@@ -83,32 +83,32 @@ const MySongsView: React.FC<MySongsViewProps> = ({ songs, onView, onViewDetails,
               </svg>
             </button>
 
-            {/* View details button */}
+            {/* Play/Pause button */}
             <button 
-              onClick={() => onViewDetails(song)}
+              onClick={(e) => {
+                e.stopPropagation();
+                onView(song);
+              }}
               className="bg-secondary p-2.5 rounded-xl hover:bg-accent transition-colors"
-              aria-label="View details"
+              aria-label={playingSongId === song.id ? 'Pause song' : 'Play song'}
             >
-              <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M10 12.5C11.3807 12.5 12.5 11.3807 12.5 10C12.5 8.61929 11.3807 7.5 10 7.5C8.61929 7.5 7.5 8.61929 7.5 10C7.5 11.3807 8.61929 12.5 10 12.5Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                <path d="M1.66667 10C1.66667 10 4.16667 4.16667 10 4.16667C15.8333 4.16667 18.3333 10 18.3333 10C18.3333 10 15.8333 15.8333 10 15.8333C4.16667 15.8333 1.66667 10 1.66667 10Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
-            </button>
-
-            {/* Play button */}
-            <button 
-              onClick={() => onView(song)}
-              className="bg-secondary p-2.5 rounded-xl hover:bg-accent transition-colors"
-              aria-label="Play song"
-            >
-              <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M3.33333 2.5L16.6667 10L3.33333 17.5V2.5Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
+              {playingSongId === song.id ? (
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M5 3.33333H8.33333V16.6667H5V3.33333ZM11.6667 3.33333H15V16.6667H11.6667V3.33333Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+              ) : (
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M3.33333 2.5L16.6667 10L3.33333 17.5V2.5Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+              )}
             </button>
             
             {/* Delete button */}
             <button 
-              onClick={() => onDelete(song.id)}
+              onClick={(e) => {
+                e.stopPropagation();
+                onDelete(song.id);
+              }}
               className="bg-secondary p-2.5 rounded-xl hover:bg-destructive/10 hover:text-destructive transition-colors"
               aria-label="Delete song"
             >

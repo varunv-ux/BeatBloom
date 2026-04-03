@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import type { GeneratedSong, MusicDescription } from '../types';
 import { MusicModel } from '../services/musicModels';
+import { shareSong } from '../lib/utils';
 import {
   GENRE_OPTIONS, MOOD_OPTIONS, ARRANGEMENT_OPTIONS, VOCAL_OPTIONS,
   buildTagsString, formatLyricsForModel,
@@ -97,11 +98,7 @@ const GeneratedSongDisplay: React.FC<GeneratedSongDisplayProps> = ({
                       const shareUrl = songId
                         ? `${window.location.origin}?song=${songId}`
                         : window.location.href;
-                      if (navigator.share) {
-                        navigator.share({ title: song.title, text: `Check out "${song.title}" - made with BeatBloom!`, url: shareUrl });
-                      } else {
-                        navigator.clipboard.writeText(shareUrl);
-                      }
+                      shareSong(shareUrl, song.title);
                     }}
                     className="flex-1 h-12 bg-background text-foreground font-medium text-base rounded-full hover:bg-accent active:scale-[0.97] transition-all"
                   >

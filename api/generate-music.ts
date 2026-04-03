@@ -1,4 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
+import { put } from '@vercel/blob';
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -150,9 +151,29 @@ export default async function handler(
       throw new Error("Prediction succeeded but no output URL was provided.");
     }
 
+    const replicateAudioUrl = prediction.output;
+
+    // Upload audio to Vercel Blob for persistent storage (Replicate URLs expire)
+    let persistentAudioUrl = replicateAudioUrl;
+    if (process.env.BLOB_READ_WRITE_TOKEN) {
+      try {
+        const audioResponse = await fetch(replicateAudioUrl);
+        if (audioResponse.ok) {
+          const audioBuffer = Buffer.from(await audioResponse.arrayBuffer());
+          const blob = await put(`songs/${Date.now()}-audio.mp3`, audioBuffer, {
+            access: 'public',
+            contentType: 'audio/mpeg',
+          });
+          persistentAudioUrl = blob.url;
+        }
+      } catch {
+        // Fall back to Replicate URL if blob upload fails
+      }
+    }
+
     return response.status(200).json({
       success: true,
-      audioUrl: prediction.output,
+      audioUrl: persistentAudioUrl,
     });
   } catch (error) {
     console.error("Error in generate-music API:", error);

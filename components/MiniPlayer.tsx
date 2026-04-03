@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { shareSong } from '../lib/utils';
 
 interface MiniPlayerProps {
   songUrl: string;
@@ -9,6 +10,7 @@ interface MiniPlayerProps {
   inline?: boolean;
   songId?: number;
   onClose: () => void;
+  onPlayingChange?: (playing: boolean) => void;
 }
 
 const MiniPlayer: React.FC<MiniPlayerProps> = ({
@@ -20,6 +22,7 @@ const MiniPlayer: React.FC<MiniPlayerProps> = ({
   inline = false,
   songId,
   onClose,
+  onPlayingChange,
 }) => {
   const audioRef = useRef<HTMLAudioElement>(null);
   const progressRef = useRef<HTMLDivElement>(null);
@@ -28,25 +31,31 @@ const MiniPlayer: React.FC<MiniPlayerProps> = ({
   const [duration, setDuration] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
 
-  // Auto-play when song URL changes (only if autoPlay is true)
+  // Load and optionally auto-play when songUrl changes
   useEffect(() => {
     const audio = audioRef.current;
-    if (audio && songUrl) {
-      audio.load();
-      if (autoPlay) {
-        audio.play().then(() => setIsPlaying(true)).catch(() => {});
-      }
+    if (!audio) return;
+
+    // Reset state for new track
+    setCurrentTime(0);
+    setDuration(0);
+
+    // Explicitly load the new source — changing src alone doesn't
+    // guarantee the browser will start loading before play() is called.
+    audio.load();
+
+    if (autoPlay) {
+      audio.play().catch(() => {});
     }
-  }, [songUrl, autoPlay]);
+  }, [songUrl]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const togglePlay = useCallback(() => {
     const audio = audioRef.current;
     if (!audio) return;
     if (audio.paused) {
-      audio.play().then(() => setIsPlaying(true)).catch(() => {});
+      audio.play().catch(() => {});
     } else {
       audio.pause();
-      setIsPlaying(false);
     }
   }, []);
 
@@ -220,11 +229,7 @@ const MiniPlayer: React.FC<MiniPlayerProps> = ({
                 const shareUrl = songId
                   ? `${window.location.origin}?song=${songId}`
                   : window.location.href;
-                if (navigator.share) {
-                  navigator.share({ title, text: `Check out "${title}" - made with BeatBloom!`, url: shareUrl });
-                } else {
-                  navigator.clipboard.writeText(shareUrl);
-                }
+                shareSong(shareUrl, title);
               }}
               className="w-8 h-8 rounded-full hover:bg-muted transition-colors flex items-center justify-center"
               aria-label="Share song"
@@ -260,8 +265,8 @@ const MiniPlayer: React.FC<MiniPlayerProps> = ({
         onTimeUpdate={handleTimeUpdate}
         onLoadedMetadata={handleLoadedMetadata}
         onEnded={handleEnded}
-        onPlay={() => setIsPlaying(true)}
-        onPause={() => setIsPlaying(false)}
+        onPlay={() => { setIsPlaying(true); onPlayingChange?.(true); }}
+        onPause={() => { setIsPlaying(false); onPlayingChange?.(false); }}
       />
     </div>
   );

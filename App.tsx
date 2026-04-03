@@ -15,9 +15,30 @@ import MobileBottomNav from './components/MobileBottomNav';
 import MobileRecorderControl from './components/MobileRecorderControl';
 import MobileMySongsView from './components/MobileMySongsView';
 import MiniPlayer from './components/MiniPlayer';
-import Toast, { ToastMessage } from './components/Toast';
+import { Toaster } from './components/ui/sonner';
+import { toast } from 'sonner';
+
+// Extracted outside App to avoid remount on every render (Rule 5.4)
+const NavButton: React.FC<{
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}> = ({ active, onClick, children }) => (
+  <button
+    onClick={onClick}
+    className={`px-3 py-2 text-sm font-medium rounded-xl transition-colors duration-200 ${
+      active
+        ? 'bg-primary text-primary-foreground'
+        : 'text-muted-foreground hover:text-foreground'
+    }`}
+  >
+    {children}
+  </button>
+);
 
 const App: React.FC = () => {
+  // Guard for one-time init (Rule 8.2: init app once, not per mount)
+  const didInitRef = useRef(false);
   const [view, setView] = useState<AppView>(() => {
     if (typeof window !== 'undefined') {
       const saved = sessionStorage.getItem('beatbloom-view');
@@ -38,22 +59,27 @@ const App: React.FC = () => {
   const [selectedMusicModel, setSelectedMusicModel] = useState<MusicModelId>(DEFAULT_MODEL);
   const [showSettings, setShowSettings] = useState<boolean>(false);
   const [showModelSelection, setShowModelSelection] = useState<boolean>(false);
-  const [isMobile, setIsMobile] = useState<boolean>(false);
+  const [isMobile, setIsMobile] = useState<boolean>(() => 
+    typeof window !== 'undefined' && window.innerWidth < 768
+  );
   const [songsLoading, setSongsLoading] = useState<boolean>(true);
   const [songsError, setSongsError] = useState<string | null>(null);
   const [previousObjectUrl, setPreviousObjectUrl] = useState<string | null>(null);
   const [miniPlayerSong, setMiniPlayerSong] = useState<{ url: string; title: string; albumArtUrl: string; subtitle: string; autoPlay?: boolean; songId?: number } | null>(null);
+  const [isMiniPlayerPlaying, setIsMiniPlayerPlaying] = useState(false);
   const [darkMode, setDarkMode] = useState<boolean>(() => {
     if (typeof window !== 'undefined') {
       return localStorage.getItem('beatbloom-dark-mode') === 'true';
     }
     return false;
   });
-  const [toasts, setToasts] = useState<ToastMessage[]>([]);
   const abortControllerRef = useRef<AbortController | null>(null);
   const [editingSongId, setEditingSongId] = useState<number | null>(null);
 
   useEffect(() => {
+    if (didInitRef.current) return;
+    didInitRef.current = true;
+
     // Load cached songs immediately, then refresh from API
     cacheService.getCachedSongs().then((cached) => {
       if (cached.length > 0) {
@@ -114,35 +140,25 @@ const App: React.FC = () => {
     localStorage.setItem('beatbloom-dark-mode', String(darkMode));
   }, [darkMode]);
 
-  const addToast = useCallback((type: ToastMessage['type'], message: string) => {
-    const id = Date.now().toString();
-    setToasts((prev) => [...prev, { id, type, message }]);
-  }, []);
-
-  const dismissToast = useCallback((id: string) => {
-    setToasts((prev) => prev.filter((t) => t.id !== id));
-  }, []);
+  // Close settings on outside click (uses ref to avoid re-registering listener)
+  const showSettingsRef = useRef(showSettings);
+  showSettingsRef.current = showSettings;
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (showSettings && !(event.target as Element).closest('.user-menu-container') && !(event.target as Element).closest('.settings-dropdown')) {
+      if (showSettingsRef.current && !(event.target as Element).closest('.user-menu-container') && !(event.target as Element).closest('.settings-dropdown')) {
         setShowSettings(false);
       }
     };
 
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [showSettings]);
+  }, []);
 
   useEffect(() => {
-    const checkMobile = () => {
-      setIsMobile(window.innerWidth < 768);
-    };
-    
-    checkMobile();
-    window.addEventListener('resize', checkMobile);
-    
-    return () => window.removeEventListener('resize', checkMobile);
+    const handleResize = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
   }, []);
 
   const loadSongs = async () => {
@@ -163,7 +179,7 @@ const App: React.FC = () => {
 
   const handleGenerate = useCallback(async () => {
     if (!audioBlob) {
-      addToast('error', 'No recording available. Please record something first.');
+      toast.error('No recording available. Please record something first.');
       return;
     }
     handleReset(true);
@@ -175,11 +191,11 @@ const App: React.FC = () => {
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'An unknown error occurred during generation.';
       setError(msg);
-      addToast('error', msg);
+      toast.error(msg);
     } finally {
       setIsLoading(false);
     }
-  }, [audioBlob, addToast]);
+  }, [audioBlob]);
 
   const handleCancelMusicGeneration = useCallback(() => {
     if (abortControllerRef.current) {
@@ -201,7 +217,7 @@ const App: React.FC = () => {
     setSongUrl(null);
 
     try {
-      const { audioUrl, audioBlob: generatedAudioBlob } = await generateMusic(lyrics, tags, duration, selectedMusicModel, controller.signal);
+      const { audioUrl } = await generateMusic(lyrics, tags, duration, selectedMusicModel, controller.signal);
       setSongUrl(audioUrl);
 
       // Open mini player
@@ -212,7 +228,7 @@ const App: React.FC = () => {
         subtitle: `${description.genre} \u2022 ${description.mood} \u2022 ${description.vocals} vocals`,
       });
 
-      addToast('success', 'Your song is ready!');
+      toast.success('Your song is ready!');
       
       const savedId = await dbService.addSong({
         title: generatedSong.title,
@@ -220,7 +236,6 @@ const App: React.FC = () => {
         musicDescription: description,
         albumArtUrl: generatedSong.albumArtUrl,
         audioUrl,
-        generatedSongBlob: generatedAudioBlob,
         parentId: editingSongId,
       });
 
@@ -234,17 +249,17 @@ const App: React.FC = () => {
 
     } catch (err) {
       if (err instanceof DOMException && err.name === 'AbortError') {
-        addToast('info', 'Music generation cancelled.');
+        toast.info('Music generation cancelled.');
       } else {
         const msg = err instanceof Error ? err.message : 'An unknown error occurred while creating the song.';
         setMusicError(msg);
-        addToast('error', msg);
+        toast.error(msg);
       }
     } finally {
       setIsGeneratingMusic(false);
       abortControllerRef.current = null;
     }
-  }, [generatedSong, selectedMusicModel, addToast, handleCancelMusicGeneration]);
+  }, [generatedSong, selectedMusicModel, handleCancelMusicGeneration]);
 
   const handleReset = (soft: boolean = false) => {
     setGeneratedSong(null);
@@ -265,15 +280,45 @@ const App: React.FC = () => {
   };
 
   const handleDeleteSong = async (id: number) => {
-    if (!window.confirm('Are you sure you want to delete this song? This cannot be undone.')) {
-      return;
+    // Remove from UI immediately
+    const deletedSong = savedSongs.find(s => s.id === id);
+    setSavedSongs(prev => prev.filter(s => s.id !== id));
+    if (miniPlayerSong?.songId === id) {
+      setMiniPlayerSong(null);
     }
-    await dbService.deleteSong(id);
-    await cacheService.removeCachedSong(id);
-    await loadSongs();
+
+    // Show undo toast — delay actual deletion
+    let undone = false;
+    toast('Song deleted', {
+      action: {
+        label: 'Undo',
+        onClick: () => {
+          undone = true;
+          if (deletedSong) {
+            setSavedSongs(prev => [deletedSong, ...prev].sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime()));
+          }
+        },
+      },
+      duration: 5000,
+    });
+
+    // Wait for the toast to expire, then delete for real
+    setTimeout(async () => {
+      if (!undone) {
+        await dbService.deleteSong(id);
+        await cacheService.removeCachedSong(id);
+        cacheService.setCachedSongs(savedSongs.filter(s => s.id !== id));
+      }
+    }, 5000);
   };
 
   const handleViewSong = async (song: SavedSong) => {
+    // If same song is playing, close the player (toggle off)
+    if (miniPlayerSong?.songId === song.id) {
+      setMiniPlayerSong(null);
+      return;
+    }
+
     // Revoke previous object URL to prevent memory leak
     if (previousObjectUrl) {
       URL.revokeObjectURL(previousObjectUrl);
@@ -297,14 +342,21 @@ const App: React.FC = () => {
   };
 
   const handleViewSongDetails = async (song: SavedSong) => {
+    // Switch view immediately with what we have, fetch lyrics in background
     setGeneratedSong({
       title: song.title,
-      lyrics: song.lyrics,
+      lyrics: song.lyrics || '',
       musicDescription: song.musicDescription,
       albumArtUrl: song.albumArtUrl,
     });
-    // Set the song ID for versioning — new generations will be versions of this song
     setEditingSongId(song.parentId || song.id);
+    setView('create');
+    setRecordingStatus('idle');
+    setAudioBlob(null);
+    setAudioURL(null);
+    setError(null);
+    setMusicError(null);
+
     if (song.audioUrl) {
       setSongUrl(song.audioUrl);
       const cachedUrl = await cacheService.getCachedAudioUrl(song.id);
@@ -319,35 +371,20 @@ const App: React.FC = () => {
         songId: song.id,
       });
     }
-    setView('create');
-    setRecordingStatus('idle');
-    setAudioBlob(null);
-    setAudioURL(null);
-    setError(null);
-    setMusicError(null);
+
+    // Fetch lyrics lazily and update once available
+    if (!song.lyrics) {
+      const fullSong = await dbService.getSong(song.id);
+      if (fullSong?.lyrics) {
+        setGeneratedSong(prev => prev ? { ...prev, lyrics: fullSong.lyrics! } : prev);
+      }
+    }
   };
-  
-  const NavButton: React.FC<{
-    active: boolean;
-    onClick: () => void;
-    children: React.ReactNode;
-  }> = ({ active, onClick, children }) => (
-    <button
-      onClick={onClick}
-      className={`px-3 py-2 text-sm font-medium rounded-xl transition-colors duration-200 ${
-        active
-          ? 'bg-primary text-primary-foreground'
-          : 'text-muted-foreground hover:text-foreground'
-      }`}
-    >
-      {children}
-    </button>
-  );
 
   return (
     <>
       {/* Toast notifications */}
-      <Toast toasts={toasts} onDismiss={dismissToast} />
+      <Toaster position="top-right" richColors closeButton />
 
       {/* Mobile View */}
       {isMobile ? (
@@ -417,6 +454,7 @@ const App: React.FC = () => {
                 autoPlay={miniPlayerSong.autoPlay !== false}
                 songId={miniPlayerSong.songId}
                 onClose={() => setMiniPlayerSong(null)}
+                onPlayingChange={setIsMiniPlayerPlaying}
               />
             </>
           )}
@@ -483,7 +521,7 @@ const App: React.FC = () => {
           </header>
 
           {/* Main Content */}
-          <main className="flex-1 flex flex-col overflow-hidden">
+          <main className="flex-1 flex flex-col overflow-y-auto min-h-0">
             {view === 'my-songs' ? (
               <div className="w-full p-5 flex-1 overflow-y-auto">
                 {songsLoading ? (
@@ -496,7 +534,7 @@ const App: React.FC = () => {
                     <button onClick={loadSongs} className="px-4 py-2 bg-primary text-primary-foreground rounded-xl">Retry</button>
                   </div>
                 ) : (
-                  <MySongsView songs={savedSongs} onView={handleViewSong} onViewDetails={handleViewSongDetails} onDelete={handleDeleteSong} />
+                  <MySongsView songs={savedSongs} onView={handleViewSong} onViewDetails={handleViewSongDetails} onDelete={handleDeleteSong} playingSongId={isMiniPlayerPlaying ? miniPlayerSong?.songId : undefined} />
                 )}
               </div>
             ) : isLoading ? (
@@ -516,13 +554,11 @@ const App: React.FC = () => {
                 songId={editingSongId}
               />
             ) : (
-              <div className="flex-1 flex flex-col items-center justify-center px-[411px] py-[180px]">
-                <div className="flex flex-col items-center gap-10 w-[600px]">
-                  {recordingStatus !== 'stopped' && (
-                    <h2 className="text-5xl font-medium text-foreground text-center leading-none">
-                      Hum a tune, say a few words, and get a masterpiece
-                    </h2>
-                  )}
+              <div className="flex-1 flex flex-col items-center justify-center px-6 py-8 xl:px-[411px] xl:py-[120px]">
+                <div className="flex flex-col items-center gap-6 w-full max-w-[600px]">
+                  <h2 className="text-5xl font-medium text-foreground text-center leading-none">
+                    {recordingStatus === 'stopped' ? 'Recording complete' : 'Hum a tune, say a few words, and get a masterpiece'}
+                  </h2>
                   
                   <RecorderControl
                     recordingStatus={recordingStatus}
@@ -540,7 +576,7 @@ const App: React.FC = () => {
                   )}
                   
                   {recordingStatus === 'stopped' && !error && (
-                    <div className="w-full flex flex-col items-center gap-4">
+                    <div className="w-full flex flex-col items-center gap-3">
                       <button
                         onClick={handleGenerate}
                         disabled={!audioBlob || isLoading}
@@ -571,6 +607,7 @@ const App: React.FC = () => {
                 subtitle={miniPlayerSong.subtitle}
                 autoPlay={miniPlayerSong.autoPlay !== false}
                 onClose={() => setMiniPlayerSong(null)}
+                onPlayingChange={setIsMiniPlayerPlaying}
                 songId={miniPlayerSong.songId}
                 inline
               />

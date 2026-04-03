@@ -1,5 +1,6 @@
 import React from 'react';
 import { SavedSong } from '../types';
+import { shareSong } from '../lib/utils';
 
 interface MobileMySongsViewProps {
   songs: SavedSong[];
@@ -61,11 +62,7 @@ const MobileMySongsView: React.FC<MobileMySongsViewProps> = ({ songs, onView, on
               <button 
                 onClick={() => {
                   const shareUrl = `${window.location.origin}?song=${song.id}`;
-                  if (navigator.share) {
-                    navigator.share({ title: song.title, text: `Check out "${song.title}" - made with BeatBloom!`, url: shareUrl });
-                  } else {
-                    navigator.clipboard.writeText(shareUrl);
-                  }
+                  shareSong(shareUrl, song.title);
                 }}
                 className="p-2"
                 aria-label="Share song"
