@@ -7,9 +7,10 @@ interface MobileMySongsViewProps {
   onView: (song: SavedSong) => Promise<void>;
   onViewDetails: (song: SavedSong) => Promise<void>;
   onDelete: (id: number) => void;
+  playingSongId?: number | null;
 }
 
-const MobileMySongsView: React.FC<MobileMySongsViewProps> = ({ songs, onView, onViewDetails, onDelete }) => {
+const MobileMySongsView: React.FC<MobileMySongsViewProps> = ({ songs, onView, onViewDetails, onDelete, playingSongId }) => {
   if (songs.length === 0) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center py-20 px-5">
@@ -30,18 +31,19 @@ const MobileMySongsView: React.FC<MobileMySongsViewProps> = ({ songs, onView, on
       {songs.map(song => (
         <div 
           key={song.id} 
-          className="bg-secondary rounded-[24px] p-2"
+          className="bg-secondary rounded-[24px] p-2 cursor-pointer active:bg-accent/50 transition-colors"
+          onClick={() => onViewDetails(song)}
         >
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
             <img 
               src={song.albumArtUrl} 
               alt={`${song.title} album art`}
-              className="w-20 h-20 rounded-2xl object-cover flex-shrink-0" 
+              className="w-16 h-16 rounded-xl object-cover flex-shrink-0" 
             />
             
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-1.5">
-                <h3 className="font-medium text-base text-foreground truncate">
+                <h3 className="font-medium text-sm text-foreground truncate">
                   {song.title}
                 </h3>
                 {song.versionNumber && song.versionNumber > 1 && (
@@ -58,40 +60,30 @@ const MobileMySongsView: React.FC<MobileMySongsViewProps> = ({ songs, onView, on
               </p>
             </div>
             
-            <div className="flex items-center gap-2 opacity-80">
+            <div className="flex items-center gap-1 opacity-80">
               <button 
-                onClick={() => {
-                  const shareUrl = `${window.location.origin}?song=${song.id}`;
-                  shareSong(shareUrl, song.title);
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onView(song);
                 }}
                 className="p-2"
-                aria-label="Share song"
+                aria-label={playingSongId === song.id ? 'Pause song' : 'Play song'}
               >
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" className="text-muted-foreground" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                  <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
-                </svg>
+                {playingSongId === song.id ? (
+                  <svg width="18" height="18" viewBox="0 0 20 20" fill="none" className="text-muted-foreground">
+                    <path d="M5 3.333H8.333V16.667H5V3.333ZM11.667 3.333H15V16.667H11.667V3.333Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                ) : (
+                  <svg width="18" height="18" viewBox="0 0 20 20" fill="none" className="text-muted-foreground">
+                    <path d="M3.33333 2.5L16.6667 10L3.33333 17.5V2.5Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                )}
               </button>
               <button 
-                onClick={() => onViewDetails(song)}
-                className="p-2"
-                aria-label="View details"
-              >
-                <svg width="18" height="18" viewBox="0 0 20 20" fill="none" className="text-muted-foreground">
-                  <path d="M10 12.5C11.3807 12.5 12.5 11.3807 12.5 10C12.5 8.61929 11.3807 7.5 10 7.5C8.61929 7.5 7.5 8.61929 7.5 10C7.5 11.3807 8.61929 12.5 10 12.5Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                  <path d="M1.667 10C1.667 10 4.167 4.167 10 4.167C15.833 4.167 18.333 10 18.333 10C18.333 10 15.833 15.833 10 15.833C4.167 15.833 1.667 10 1.667 10Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
-              </button>
-              <button 
-                onClick={() => onView(song)}
-                className="p-2"
-                aria-label="View song"
-              >
-                <svg width="18" height="18" viewBox="0 0 20 20" fill="none" className="text-muted-foreground">
-                  <path d="M3.33333 2.5L16.6667 10L3.33333 17.5V2.5Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
-              </button>
-              <button 
-                onClick={() => onDelete(song.id)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDelete(song.id);
+                }}
                 className="p-2"
                 aria-label="Delete song"
               >

@@ -23,17 +23,19 @@ const MobileRecorderControl: React.FC<MobileRecorderControlProps> = ({
 }) => {
   const [timer, setTimer] = useState(0);
   const [timerInterval, setTimerInterval] = useState<NodeJS.Timeout | null>(null);
+  const [pendingStop, setPendingStop] = useState(false);
 
   const recorderControls = useVoiceVisualizer({
     onStartRecording: () => {
       setRecordingStatus('recording');
+      setPendingStop(false);
       const interval = setInterval(() => {
         setTimer((prev) => prev + 1);
       }, 1000);
       setTimerInterval(interval);
     },
     onStopRecording: () => {
-      setRecordingStatus('stopped');
+      setPendingStop(true);
       if (timerInterval) {
         clearInterval(timerInterval);
         setTimerInterval(null);
@@ -67,15 +69,17 @@ const MobileRecorderControl: React.FC<MobileRecorderControlProps> = ({
   } = recorderControls;
 
   useEffect(() => {
-    if (recordedBlob) {
+    if (recordedBlob && pendingStop) {
       setAudioBlob(recordedBlob);
       if (audioURL) {
         URL.revokeObjectURL(audioURL);
       }
       const url = URL.createObjectURL(recordedBlob);
       setAudioURL(url);
+      setRecordingStatus('stopped');
+      setPendingStop(false);
     }
-  }, [recordedBlob]);
+  }, [recordedBlob, pendingStop]);
 
   useEffect(() => {
     if (error) {
@@ -109,28 +113,21 @@ const MobileRecorderControl: React.FC<MobileRecorderControlProps> = ({
 
   if (recordingStatus === 'stopped' && recordedBlob) {
     return (
-      <div className="flex flex-col items-center gap-8 px-5 py-5">
-        <div className="flex items-center gap-3">
-          <div className="w-20 h-20 rounded-2xl bg-secondary flex items-center justify-center">
-            <svg width="40" height="40" viewBox="0 0 40 40" fill="none" className="text-muted-foreground">
-              <path d="M13.3333 10.0001L26.6666 20.0001L13.3333 30.0001V10.0001Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
-          </div>
-          <p className="text-[28px] font-medium text-foreground leading-8 w-[137px]">
-            Recording complete
-          </p>
-        </div>
+      <div className="flex-1 flex flex-col items-center justify-center px-6 gap-8">
+        <h2 className="text-2xl font-semibold text-foreground text-center">
+          Recording complete
+        </h2>
 
-        <div className="w-full h-[100px] flex items-center justify-center">
-          <div className="w-full h-20">
+        <div className="w-full h-16 flex items-center justify-center">
+          <div className="w-full h-16">
             <VoiceVisualizer
               controls={recorderControls}
-              height={80}
+              height={64}
               width="100%"
               backgroundColor="transparent"
               mainBarColor="#79716b"
               secondaryBarColor="#e7e5e4"
-              barWidth={4}
+              barWidth={3}
               gap={1}
               rounded={5}
               isControlPanelShown={false}
@@ -143,16 +140,16 @@ const MobileRecorderControl: React.FC<MobileRecorderControlProps> = ({
           </div>
         </div>
 
-        <div className="flex flex-col gap-4 w-full max-w-[300px]">
+        <div className="flex flex-col gap-3 w-full px-4">
           <button
             onClick={onGenerate}
-            className="w-full h-14 bg-primary text-primary-foreground font-medium text-base rounded-3xl"
+            className="w-full h-[52px] bg-primary text-primary-foreground font-medium text-[15px] rounded-2xl active:scale-[0.98] transition-transform"
           >
             Generate lyrics & song art
           </button>
           <button
             onClick={onReset}
-            className="w-full h-14 bg-secondary text-secondary-foreground font-medium text-base rounded-3xl"
+            className="w-full h-[52px] bg-secondary text-secondary-foreground font-medium text-[15px] rounded-2xl active:scale-[0.98] transition-transform"
           >
             Record again
           </button>
@@ -162,36 +159,36 @@ const MobileRecorderControl: React.FC<MobileRecorderControlProps> = ({
   }
 
   return (
-    <div className="flex flex-col items-center gap-8 px-5 py-5">
-      <p className="text-[28px] font-medium text-foreground text-center leading-8 max-w-[300px]">
+    <div className="flex-1 flex flex-col items-center justify-center px-6 gap-8">
+      <h2 className="text-2xl font-semibold text-foreground text-center leading-snug max-w-[280px]">
         Hum a tune, say a few words, and get a masterpiece
-      </p>
+      </h2>
 
-      <div className="w-full h-[100px] flex items-center justify-center">
+      <div className="w-full h-16 flex items-center justify-center">
         {recordingStatus === 'idle' ? (
-          <div className="flex items-center justify-center gap-1 h-20 w-full opacity-20">
+          <div className="flex items-center justify-center gap-[3px] h-16 w-full">
             {Array.from({ length: 50 }).map((_, i) => (
               <div
                 key={i}
-                className="bg-stone-600 rounded-full"
+                className="bg-muted-foreground/20 rounded-full"
                 style={{
                   width: '3px',
-                  height: `${12 + Math.sin(i * 0.3) * 8}px`,
+                  height: `${10 + Math.sin(i * 0.3) * 8}px`,
                 }}
               />
             ))}
           </div>
         ) : (
-          <div className="w-full h-20">
+          <div className="w-full h-16">
             <VoiceVisualizer
               controls={recorderControls}
-              height={80}
+              height={64}
               width="100%"
               backgroundColor="transparent"
               mainBarColor="#79716b"
               secondaryBarColor="#e7e5e4"
               speed={1}
-              barWidth={4}
+              barWidth={3}
               gap={1}
               rounded={5}
               isControlPanelShown={false}
@@ -204,36 +201,40 @@ const MobileRecorderControl: React.FC<MobileRecorderControlProps> = ({
         )}
       </div>
 
-      <div className="flex flex-col gap-4 items-center">
-        {(isRecordingInProgress || isPausedRecording) && (
-          <div className="flex gap-5 w-full max-w-[300px]">
+      <div className="flex flex-col gap-3 items-center w-full px-4">
+        {(isRecordingInProgress || isPausedRecording) ? (
+          <>
+            <div className="text-muted-foreground text-lg tabular-nums mb-1">
+              {formattedRecordingTime || formatTime(timer)}
+            </div>
+            <div className="flex gap-3 w-full">
+              <button
+                onClick={handleButtonClick}
+                className="flex-1 h-[52px] bg-primary text-primary-foreground font-medium text-[15px] rounded-2xl active:scale-[0.98] transition-transform"
+              >
+                Stop recording
+              </button>
+              <button
+                onClick={() => togglePauseResume()}
+                className="h-[52px] px-6 bg-secondary text-secondary-foreground font-medium text-[15px] rounded-2xl active:scale-[0.98] transition-transform"
+              >
+                {isPausedRecording ? 'Resume' : 'Pause'}
+              </button>
+            </div>
+          </>
+        ) : (
+          <>
             <button
               onClick={handleButtonClick}
-              className="flex-1 h-14 bg-primary text-primary-foreground font-medium text-base rounded-3xl"
+              className="w-full h-[52px] bg-primary text-primary-foreground font-medium text-[15px] rounded-2xl active:scale-[0.98] transition-transform"
             >
-              Stop
+              Start recording
             </button>
-            <button
-              onClick={() => togglePauseResume()}
-              className="flex-1 h-14 bg-secondary text-secondary-foreground font-medium text-base rounded-3xl"
-            >
-              {isPausedRecording ? 'Resume' : 'Pause'}
-            </button>
-          </div>
+            <div className="text-muted-foreground/60 text-sm tabular-nums">
+              {formatTime(timer)}
+            </div>
+          </>
         )}
-        
-        {!isRecordingInProgress && !isPausedRecording && (
-          <button
-            onClick={handleButtonClick}
-            className="w-full max-w-[300px] h-14 bg-red-600 text-white font-medium text-base rounded-3xl"
-          >
-            Start recording
-          </button>
-        )}
-        
-        <div className="text-muted-foreground text-base">
-          {formattedRecordingTime || formatTime(timer)}
-        </div>
       </div>
     </div>
   );

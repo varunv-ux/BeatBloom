@@ -388,11 +388,15 @@ const App: React.FC = () => {
 
       {/* Mobile View */}
       {isMobile ? (
-        <div className="h-screen w-screen overflow-hidden font-sans bg-background text-foreground flex flex-col">
-          <MobileHeader onSettingsClick={() => setShowSettings(!showSettings)} />
+        <div className="h-dvh w-screen overflow-hidden font-sans bg-background text-foreground flex flex-col">
+          <MobileHeader
+            onSettingsClick={() => setShowSettings(!showSettings)}
+            onNewSong={() => { handleReset(false); setView('create'); }}
+            onModelSelect={() => setShowModelSelection(!showModelSelection)}
+          />
 
           {/* Main Content */}
-          <main className="flex-1 flex flex-col overflow-hidden">
+          <main className="flex-1 flex flex-col overflow-y-auto min-h-0">
             {view === 'my-songs' ? (
               songsLoading ? (
                 <div className="flex-1 flex items-center justify-center">
@@ -404,7 +408,7 @@ const App: React.FC = () => {
                   <button onClick={loadSongs} className="px-4 py-2 bg-primary text-primary-foreground rounded-xl">Retry</button>
                 </div>
               ) : (
-                <MobileMySongsView songs={savedSongs} onView={handleViewSong} onViewDetails={handleViewSongDetails} onDelete={handleDeleteSong} />
+                <MobileMySongsView songs={savedSongs} onView={handleViewSong} onViewDetails={handleViewSongDetails} onDelete={handleDeleteSong} playingSongId={isMiniPlayerPlaying ? miniPlayerSong?.songId : undefined} />
               )
             ) : isLoading ? (
               <div className="flex-1 flex items-center justify-center">
@@ -440,12 +444,9 @@ const App: React.FC = () => {
             )}
           </main>
 
-          <MobileBottomNav activeView={view} onViewChange={setView} />
-
-          {/* Mini Player - spacer + player for mobile */}
+          {/* Mini Player - mobile (above bottom nav) */}
           {miniPlayerSong && (
-            <>
-              <div className="h-[84px] flex-shrink-0" />
+            <div className="flex-shrink-0">
               <MiniPlayer
                 songUrl={miniPlayerSong.url}
                 title={miniPlayerSong.title}
@@ -455,9 +456,12 @@ const App: React.FC = () => {
                 songId={miniPlayerSong.songId}
                 onClose={() => setMiniPlayerSong(null)}
                 onPlayingChange={setIsMiniPlayerPlaying}
+                inline
               />
-            </>
+            </div>
           )}
+
+          <MobileBottomNav activeView={view} onViewChange={setView} />
         </div>
       ) : (
         <>
