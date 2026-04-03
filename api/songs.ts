@@ -37,10 +37,10 @@ export default async function handler(
       const limit = Math.min(50, Math.max(1, parseInt(request.query.limit as string) || 20));
       const offset = (page - 1) * limit;
 
-      // Get songs with pagination (exclude lyrics, truncate base64 art URLs to reduce transfer)
+      // Get songs with pagination (exclude lyrics; strip base64 art to save Neon bandwidth)
       const result = await sql`
         SELECT id, title, music_description,
-          CASE WHEN album_art_url LIKE 'data:%' THEN 'data:image/png;base64,' ELSE album_art_url END as album_art_url,
+          CASE WHEN album_art_url LIKE 'data:%' THEN '' ELSE album_art_url END as album_art_url,
           audio_url, parent_id, version_number, created_at, updated_at
         FROM songs
         ORDER BY created_at DESC
