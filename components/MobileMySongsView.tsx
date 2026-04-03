@@ -27,7 +27,7 @@ const MobileMySongsView: React.FC<MobileMySongsViewProps> = ({ songs, onView, on
   };
 
   return (
-    <div className="flex flex-col gap-3 w-full px-3 py-5 overflow-y-auto">
+    <div className="flex flex-col gap-3 w-full px-3 py-4 pb-20 overflow-y-auto">
       {songs.map(song => (
         <div 
           key={song.id} 
@@ -66,8 +66,8 @@ const MobileMySongsView: React.FC<MobileMySongsViewProps> = ({ songs, onView, on
                   e.stopPropagation();
                   onView(song);
                 }}
-                className="p-2"
-                aria-label={playingSongId === song.id ? 'Pause song' : 'Play song'}
+                className="p-2.5"
+                aria-label={playingSongId === song.id ? `Pause ${song.title}` : `Play ${song.title}`}
               >
                 {playingSongId === song.id ? (
                   <svg width="18" height="18" viewBox="0 0 20 20" fill="none" className="text-muted-foreground">
@@ -84,8 +84,8 @@ const MobileMySongsView: React.FC<MobileMySongsViewProps> = ({ songs, onView, on
                   e.stopPropagation();
                   onDelete(song.id);
                 }}
-                className="p-2"
-                aria-label="Delete song"
+                className="p-2.5"
+                aria-label={`Delete ${song.title}`}
               >
                 <svg width="18" height="18" viewBox="0 0 20 20" fill="none" className="text-muted-foreground">
                   <path d="M2.5 5H17.5M6.667 5V3.333C6.667 2.5 7.5 1.667 8.333 1.667H11.667C12.5 1.667 13.333 2.5 13.333 3.333V5M15.833 5V16.667C15.833 17.5 15 18.333 14.167 18.333H5.833C5 18.333 4.167 17.5 4.167 16.667V5H15.833Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>

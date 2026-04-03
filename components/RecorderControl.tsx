@@ -155,7 +155,7 @@ const RecorderControl: React.FC<RecorderControlProps> = ({
           </button>
           
           {/* Voice visualizer for completed recording */}
-          <div className="w-[600px] h-20 rounded-lg overflow-hidden">
+          <div className="w-full max-w-[600px] h-20 rounded-lg overflow-hidden">
             <VoiceVisualizer
               controls={recorderControls}
               height={80}
@@ -187,14 +187,14 @@ const RecorderControl: React.FC<RecorderControlProps> = ({
   return (
     <div className="flex flex-col items-center gap-6">
       {/* Voice Visualizer */}
-      <div className="h-[120px] flex items-center justify-center w-[600px]">
+      <div className="h-[120px] flex items-center justify-center w-full max-w-[600px]">
         {recordingStatus === 'idle' ? (
           // Static waveform when idle - more elegant and matching design
-          <div className="flex items-center justify-center gap-1 h-20 w-[577px]">
+          <div className="flex items-center justify-center gap-1 h-20 w-full">
             {Array.from({ length: 60 }).map((_, i) => (
               <div
                 key={i}
-                className="bg-stone-300 rounded-full transition-all duration-500"
+                className="bg-muted-foreground/30 rounded-full transition-all duration-500"
                 style={{
                   width: '3px',
                   height: `${12 + Math.sin(i * 0.3) * 8}px`,
@@ -205,11 +205,11 @@ const RecorderControl: React.FC<RecorderControlProps> = ({
           </div>
         ) : recordingStatus === 'paused' ? (
           // Paused state - static but different from idle
-          <div className="flex items-center justify-center gap-1 h-20 w-[577px]">
+          <div className="flex items-center justify-center gap-1 h-20 w-full">
             {Array.from({ length: 60 }).map((_, i) => (
               <div
                 key={i}
-                className="bg-amber-400 rounded-full transition-all duration-500"
+                className="bg-muted-foreground/50 rounded-full transition-all duration-500"
                 style={{
                   width: '3px',
                   height: `${12 + Math.sin(i * 0.3) * 8}px`,

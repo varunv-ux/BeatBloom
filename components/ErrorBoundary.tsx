@@ -27,10 +27,10 @@ class ErrorBoundary extends Component<Props, State> {
   render() {
     if (this.state.hasError) {
       return (
-        <div className="h-screen w-screen flex items-center justify-center bg-white">
+        <div className="h-screen w-screen flex items-center justify-center bg-background">
           <div className="text-center max-w-md px-6">
-            <h1 className="text-3xl font-bold text-stone-950 mb-4">Something went wrong</h1>
-            <p className="text-stone-500 mb-6">
+            <h1 className="text-3xl font-bold text-foreground mb-4">Something went wrong</h1>
+            <p className="text-muted-foreground mb-6">
               {this.state.error?.message || 'An unexpected error occurred.'}
             </p>
             <button
@@ -38,7 +38,7 @@ class ErrorBoundary extends Component<Props, State> {
                 this.setState({ hasError: false, error: null });
                 window.location.reload();
               }}
-              className="px-6 py-3 bg-stone-950 text-white rounded-2xl hover:bg-stone-800 transition-colors"
+              className="px-6 py-3 bg-primary text-primary-foreground rounded-2xl hover:opacity-90 transition-colors"
             >
               Reload App
             </button>

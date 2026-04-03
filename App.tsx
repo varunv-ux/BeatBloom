@@ -619,6 +619,8 @@ const App: React.FC = () => {
           )}
         </div>
       </div>
+      </>
+    )}
 
       {/* Settings Menu Dropdown */}
       {showSettings && (
@@ -781,8 +783,6 @@ const App: React.FC = () => {
           </div>
         </div>
       )}
-      </>
-    )}
 
     {/* No external mini player for desktop — it's inline now */}
     </>

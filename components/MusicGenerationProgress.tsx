@@ -46,7 +46,7 @@ const MusicGenerationProgress: React.FC<MusicGenerationProgressProps> = ({ isGen
   const stageLabel = getStageLabel(elapsed);
 
   return (
-    <div className="flex flex-col items-center gap-4 p-5 bg-stone-100 dark:bg-stone-800 rounded-2xl">
+    <div className="flex flex-col items-center gap-4 p-5 bg-secondary rounded-2xl">
       <PromptKitLoader variant="wave" size="lg" />
 
       <div className="text-center space-y-1">

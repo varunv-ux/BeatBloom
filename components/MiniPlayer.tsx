@@ -144,7 +144,43 @@ const MiniPlayer: React.FC<MiniPlayerProps> = ({
   return (
     <div className={inline ? '' : 'fixed bottom-0 left-0 right-0 z-50'}>
       <div className="bg-background border-t border-border">
-        <div className="w-full px-5 py-3 flex items-center gap-4">
+        {/* Progress bar at top (mobile only — full width, no labels) */}
+        <div className="md:hidden">
+          <div
+            ref={progressRef}
+            className="w-full h-1 bg-muted cursor-pointer"
+            onClick={handleProgressClick}
+            onMouseDown={handleMouseDown}
+            onTouchStart={handleTouchStart}
+          >
+            <div
+              className="h-full bg-primary transition-[width] duration-100"
+              style={{ width: `${progress}%` }}
+            />
+          </div>
+        </div>
+
+        {/* Mobile layout: art + title + play + close */}
+        <div className="flex items-center gap-3 px-3 py-2 md:hidden">
+          <img src={albumArtUrl} alt={title} className="w-10 h-10 rounded-lg object-cover flex-shrink-0" />
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium text-foreground truncate">{title}</p>
+            {subtitle && <p className="text-[11px] text-muted-foreground truncate">{subtitle}</p>}
+          </div>
+          <button onClick={togglePlay} className="w-10 h-10 bg-primary rounded-full flex items-center justify-center flex-shrink-0" aria-label={isPlaying ? 'Pause' : 'Play'}>
+            {isPlaying ? (
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" className="text-primary-foreground"><path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z" fill="currentColor"/></svg>
+            ) : (
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" className="text-primary-foreground ml-0.5"><path d="M8 5v14l11-7z" fill="currentColor"/></svg>
+            )}
+          </button>
+          <button onClick={() => { audioRef.current?.pause(); onClose(); }} className="w-8 h-8 rounded-full flex items-center justify-center" aria-label="Close">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" className="text-muted-foreground"><path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+          </button>
+        </div>
+
+        {/* Desktop layout: full 3-column */}
+        <div className="hidden md:flex w-full px-5 py-3 items-center gap-4">
           {/* Left: Album art + Song info */}
           <div className="flex items-center gap-3 min-w-0 flex-1">
             <img

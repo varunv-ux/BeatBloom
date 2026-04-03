@@ -51,12 +51,12 @@ function DrawerContent({
       <DrawerOverlay />
       <DrawerPrimitive.Content
         className={cn(
-          "fixed inset-x-0 bottom-0 z-50 mt-24 flex h-auto flex-col rounded-t-[32px] bg-white",
+          "fixed inset-x-0 bottom-0 z-50 mt-24 flex h-auto flex-col rounded-t-[32px] bg-background",
           className
         )}
         {...props}
       >
-        <div className="mx-auto mt-4 h-1.5 w-[60px] rounded-full bg-stone-300" />
+        <div className="mx-auto mt-4 h-1.5 w-[60px] rounded-full bg-muted-foreground/30" />
         {children}
       </DrawerPrimitive.Content>
     </DrawerPortal>
