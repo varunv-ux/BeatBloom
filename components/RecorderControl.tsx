@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useVoiceVisualizer, VoiceVisualizer } from 'react-voice-visualizer';
 import type { RecordingStatus } from '../types';
 
@@ -23,11 +23,17 @@ const RecorderControl: React.FC<RecorderControlProps> = ({
   // Track whether we're waiting for the blob after stopping
   const [pendingStop, setPendingStop] = useState(false);
 
+  // Delay overlay fade until visualizer has real audio data
+  const [visualizerReady, setVisualizerReady] = useState(false);
+  const readyTimerRef = useRef<NodeJS.Timeout | null>(null);
+
   // Initialize the voice visualizer with callbacks
   const recorderControls = useVoiceVisualizer({
     onStartRecording: () => {
       setRecordingStatus('recording');
       setPendingStop(false);
+      // Delay overlay fade so visualizer has time to produce bars
+      readyTimerRef.current = setTimeout(() => setVisualizerReady(true), 800);
       // Start timer
       const interval = setInterval(() => {
         setTimer((prev) => prev + 1);
@@ -37,6 +43,8 @@ const RecorderControl: React.FC<RecorderControlProps> = ({
     onStopRecording: () => {
       // Don't set 'stopped' yet — wait for recordedBlob to arrive
       setPendingStop(true);
+      setVisualizerReady(false);
+      if (readyTimerRef.current) { clearTimeout(readyTimerRef.current); readyTimerRef.current = null; }
       // Stop timer
       if (timerInterval) {
         clearInterval(timerInterval);
@@ -187,59 +195,45 @@ const RecorderControl: React.FC<RecorderControlProps> = ({
   return (
     <div className="flex flex-col items-center gap-6">
       {/* Voice Visualizer */}
-      <div className="h-[120px] flex items-center justify-center w-full max-w-[600px]">
-        {recordingStatus === 'idle' ? (
-          // Static waveform when idle - more elegant and matching design
-          <div className="flex items-center justify-center gap-1 h-20 w-full">
-            {Array.from({ length: 60 }).map((_, i) => (
-              <div
-                key={i}
-                className="bg-muted-foreground/30 rounded-full transition-all duration-500"
-                style={{
-                  width: '3px',
-                  height: `${12 + Math.sin(i * 0.3) * 8}px`,
-                  opacity: 0.6,
-                }}
-              />
-            ))}
-          </div>
-        ) : recordingStatus === 'paused' ? (
-          // Paused state - static but different from idle
-          <div className="flex items-center justify-center gap-1 h-20 w-full">
-            {Array.from({ length: 60 }).map((_, i) => (
-              <div
-                key={i}
-                className="bg-muted-foreground/50 rounded-full transition-all duration-500"
-                style={{
-                  width: '3px',
-                  height: `${12 + Math.sin(i * 0.3) * 8}px`,
-                  opacity: 0.7,
-                }}
-              />
-            ))}
-          </div>
-        ) : (
-          // Dynamic visualizer when recording with enhanced styling
-          <div className="rounded-lg overflow-hidden w-full flex justify-center">
-            <VoiceVisualizer
-              controls={recorderControls}
-              height={120}
-              width="600px"
-              backgroundColor="transparent"
-              mainBarColor="#79716b"
-              secondaryBarColor="#e7e5e4"
-              speed={1}
-              barWidth={4}
-              gap={1}
-              rounded={5}
-              isControlPanelShown={false}
-              isDefaultUIShown={false}
-              onlyRecording={true}
-              animateCurrentPick={true}
-              fullscreen={false}
+      <div className="h-[120px] flex items-center justify-center w-full max-w-[600px] relative">
+        {/* Static waveform overlay - fades out when recording */}
+        <div
+          className="absolute inset-0 z-10 flex items-center justify-center gap-1 h-full w-full bg-background transition-opacity duration-700 ease-in-out pointer-events-none"
+          style={{ opacity: (recordingStatus === 'recording' && visualizerReady) ? 0 : 1 }}
+        >
+          {Array.from({ length: 60 }).map((_, i) => (
+            <div
+              key={i}
+              className="rounded-full"
+              style={{
+                width: '3px',
+                height: `${12 + Math.sin(i * 0.3) * 8}px`,
+                opacity: recordingStatus === 'paused' ? 0.7 : 0.6,
+                backgroundColor: recordingStatus === 'paused' ? 'hsl(var(--muted-foreground) / 0.5)' : 'hsl(var(--muted-foreground) / 0.3)',
+              }}
             />
-          </div>
-        )}
+          ))}
+        </div>
+        {/* Always-mounted visualizer underneath */}
+        <div className="rounded-lg overflow-hidden w-full flex justify-center">
+          <VoiceVisualizer
+            controls={recorderControls}
+            height={120}
+            width="600px"
+            backgroundColor="transparent"
+            mainBarColor="#79716b"
+            secondaryBarColor="#e7e5e4"
+            speed={1}
+            barWidth={4}
+            gap={1}
+            rounded={5}
+            isControlPanelShown={false}
+            isDefaultUIShown={false}
+            onlyRecording={true}
+            animateCurrentPick={true}
+            fullscreen={false}
+          />
+        </div>
       </div>
       
       {/* Recording Controls */}

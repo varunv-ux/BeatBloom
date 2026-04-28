@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useVoiceVisualizer, VoiceVisualizer } from 'react-voice-visualizer';
 import type { RecordingStatus } from '../types';
 
@@ -25,10 +25,15 @@ const MobileRecorderControl: React.FC<MobileRecorderControlProps> = ({
   const [timerInterval, setTimerInterval] = useState<NodeJS.Timeout | null>(null);
   const [pendingStop, setPendingStop] = useState(false);
 
+  // Delay overlay fade until visualizer has real audio data
+  const [visualizerReady, setVisualizerReady] = useState(false);
+  const readyTimerRef = useRef<NodeJS.Timeout | null>(null);
+
   const recorderControls = useVoiceVisualizer({
     onStartRecording: () => {
       setRecordingStatus('recording');
       setPendingStop(false);
+      readyTimerRef.current = setTimeout(() => setVisualizerReady(true), 800);
       const interval = setInterval(() => {
         setTimer((prev) => prev + 1);
       }, 1000);
@@ -36,6 +41,8 @@ const MobileRecorderControl: React.FC<MobileRecorderControlProps> = ({
     },
     onStopRecording: () => {
       setPendingStop(true);
+      setVisualizerReady(false);
+      if (readyTimerRef.current) { clearTimeout(readyTimerRef.current); readyTimerRef.current = null; }
       if (timerInterval) {
         clearInterval(timerInterval);
         setTimerInterval(null);
@@ -164,41 +171,43 @@ const MobileRecorderControl: React.FC<MobileRecorderControlProps> = ({
         Hum a tune, say a few words, and get a masterpiece
       </h2>
 
-      <div className="w-full h-16 flex items-center justify-center">
-        {recordingStatus === 'idle' ? (
-          <div className="flex items-center justify-center gap-[3px] h-16 w-full">
-            {Array.from({ length: 50 }).map((_, i) => (
-              <div
-                key={i}
-                className="bg-muted-foreground/20 rounded-full"
-                style={{
-                  width: '3px',
-                  height: `${10 + Math.sin(i * 0.3) * 8}px`,
-                }}
-              />
-            ))}
-          </div>
-        ) : (
-          <div className="w-full h-16">
-            <VoiceVisualizer
-              controls={recorderControls}
-              height={64}
-              width="100%"
-              backgroundColor="transparent"
-              mainBarColor="#79716b"
-              secondaryBarColor="#e7e5e4"
-              speed={1}
-              barWidth={3}
-              gap={1}
-              rounded={5}
-              isControlPanelShown={false}
-              isDefaultUIShown={false}
-              onlyRecording={true}
-              animateCurrentPick={true}
-              fullscreen={false}
+      <div className="w-full h-16 flex items-center justify-center relative">
+        {/* Static waveform overlay - fades out when recording */}
+        <div
+          className="absolute inset-0 z-10 flex items-center justify-center gap-[3px] h-16 w-full bg-background transition-opacity duration-700 ease-in-out pointer-events-none"
+          style={{ opacity: (recordingStatus === 'recording' && visualizerReady) ? 0 : 1 }}
+        >
+          {Array.from({ length: 50 }).map((_, i) => (
+            <div
+              key={i}
+              className="bg-muted-foreground/20 rounded-full"
+              style={{
+                width: '3px',
+                height: `${10 + Math.sin(i * 0.3) * 8}px`,
+              }}
             />
-          </div>
-        )}
+          ))}
+        </div>
+        {/* Always-mounted visualizer underneath */}
+        <div className="w-full h-16">
+          <VoiceVisualizer
+            controls={recorderControls}
+            height={64}
+            width="100%"
+            backgroundColor="transparent"
+            mainBarColor="#79716b"
+            secondaryBarColor="#e7e5e4"
+            speed={1}
+            barWidth={3}
+            gap={1}
+            rounded={5}
+            isControlPanelShown={false}
+            isDefaultUIShown={false}
+            onlyRecording={true}
+            animateCurrentPick={true}
+            fullscreen={false}
+          />
+        </div>
       </div>
 
       <div className="flex flex-col gap-3 items-center w-full px-4">

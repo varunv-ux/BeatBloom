@@ -1,5 +1,5 @@
 // Music generation models available in the app
-export type MusicModelId = 'ace-step' | 'minimax-music-1.5';
+export type MusicModelId = 'ace-step' | 'minimax-music-1.5' | 'minimax-music-2.6';
 
 export interface MusicModel {
   id: MusicModelId;
@@ -12,6 +12,8 @@ export interface MusicModel {
     lyrics: boolean;
     tags: boolean;
     duration: boolean;
+    instrumental: boolean;
+    lyricsOptimizer: boolean;
   };
 }
 
@@ -27,6 +29,8 @@ export const MUSIC_MODELS: Record<MusicModelId, MusicModel> = {
       lyrics: true,
       tags: true,
       duration: true,
+      instrumental: false,
+      lyricsOptimizer: false,
     },
   },
   'minimax-music-1.5': {
@@ -40,8 +44,25 @@ export const MUSIC_MODELS: Record<MusicModelId, MusicModel> = {
       lyrics: true,
       tags: true,
       duration: false, // MiniMax doesn't have explicit duration parameter
+      instrumental: false,
+      lyricsOptimizer: false,
+    },
+  },
+  'minimax-music-2.6': {
+    id: 'minimax-music-2.6',
+    name: 'MiniMax Music 2.6',
+    description: 'Latest MiniMax model with BPM/key control, longer songs up to 6 min, and instrumental mode',
+    maxDuration: 360, // 6 minutes
+    durationOptions: [60, 120, 180, 240, 360],
+    versionId: 'latest',
+    supports: {
+      lyrics: true,
+      tags: true,
+      duration: false,
+      instrumental: true,
+      lyricsOptimizer: true,
     },
   },
 };
 
-export const DEFAULT_MODEL: MusicModelId = 'minimax-music-1.5';
+export const DEFAULT_MODEL: MusicModelId = 'minimax-music-2.6';

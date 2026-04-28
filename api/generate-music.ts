@@ -24,6 +24,11 @@ const MUSIC_MODELS: Record<string, MusicModel> = {
     versionId: 'latest',
     supports: { lyrics: true, tags: true, duration: false },
   },
+  'minimax-music-2.6': {
+    id: 'minimax-music-2.6',
+    versionId: 'latest',
+    supports: { lyrics: true, tags: true, duration: false },
+  },
 };
 
 export default async function handler(
@@ -50,10 +55,14 @@ export default async function handler(
   }
 
   try {
-    const { lyrics, tags, duration = 60, modelId = 'minimax-music-1.5' } = request.body;
+    const { lyrics, tags, duration = 60, modelId = 'minimax-music-2.6', isInstrumental = false, lyricsOptimizer = false } = request.body;
 
-    if (!lyrics || !tags) {
-      return response.status(400).json({ success: false, error: 'Missing lyrics or tags' });
+    // For instrumental mode or lyrics_optimizer, lyrics aren't required
+    if (!isInstrumental && !lyricsOptimizer && !lyrics) {
+      return response.status(400).json({ success: false, error: 'Missing lyrics' });
+    }
+    if (!tags) {
+      return response.status(400).json({ success: false, error: 'Missing tags/prompt' });
     }
 
     const model = MUSIC_MODELS[modelId];
@@ -64,7 +73,28 @@ export default async function handler(
     let inputPayload: any;
     let requestBody: any;
 
-    if (modelId === 'minimax-music-1.5') {
+    if (modelId === 'minimax-music-2.6') {
+      inputPayload = {
+        prompt: tags,
+      };
+
+      if (isInstrumental) {
+        inputPayload.is_instrumental = true;
+      } else if (lyricsOptimizer) {
+        inputPayload.lyrics_optimizer = true;
+      } else {
+        // Music 2.6 supports up to 3500 chars
+        let truncatedLyrics = lyrics;
+        if (truncatedLyrics.length > 3500) {
+          truncatedLyrics = truncatedLyrics.substring(0, 3497) + '...';
+        }
+        inputPayload.lyrics = truncatedLyrics;
+      }
+
+      requestBody = {
+        input: inputPayload,
+      };
+    } else if (modelId === 'minimax-music-1.5') {
       let truncatedLyrics = lyrics;
       const paragraphs = lyrics.split('\n\n');
 
@@ -99,8 +129,8 @@ export default async function handler(
       };
     }
 
-    const apiUrl = modelId === 'minimax-music-1.5'
-      ? `https://api.replicate.com/v1/models/minimax/music-1.5/predictions`
+    const apiUrl = (modelId === 'minimax-music-1.5' || modelId === 'minimax-music-2.6')
+      ? `https://api.replicate.com/v1/models/minimax/${modelId.replace('minimax-', '')}/predictions`
       : REPLICATE_API_URL;
 
     // Step 1: Create the prediction (server-side, no CORS proxy needed)
